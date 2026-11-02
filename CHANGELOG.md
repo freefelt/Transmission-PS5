@@ -13,7 +13,7 @@ becomes the notes of the GitHub release (see `docs/releasing.md`). A release onl
 - A web interface fix only; nothing else in the payload changed.
 
 ### Install
-[How to install Transmission for PS5](https://github.com/freefelt/Transmission-PS5#-install)
+[How to install](https://github.com/freefelt/Transmission-PS5#-install)
 
 ## [0.3]
 
@@ -26,7 +26,7 @@ becomes the notes of the GitHub release (see `docs/releasing.md`). A release onl
 - Developed and tested on firmware 11.20: going to sleep, waking up, a power off and a reboot were watched there. Other firmware versions are not verified.
 
 ### Install
-[How to install Transmission for PS5](https://github.com/freefelt/Transmission-PS5#-install)
+[How to install](https://github.com/freefelt/Transmission-PS5#-install)
 
 ## [0.2]
 
@@ -46,7 +46,7 @@ becomes the notes of the GitHub release (see `docs/releasing.md`). A release onl
 - Developed and tested on firmware 11.20. Firmware 13.60 is covered by the SDK now, but this release was not tried there. Other firmware versions are not verified.
 
 ### Install
-[How to install Transmission for PS5](https://github.com/freefelt/Transmission-PS5#-install)
+[How to install](https://github.com/freefelt/Transmission-PS5#-install)
 
 ## [0.1]
 
@@ -64,4 +64,4 @@ The first public release.
 - Developed and tested on firmware 11.20. On 10.01 a user reported that it starts and downloads a torrent. Other firmware versions are not verified.
 
 ### Install
-[How to install Transmission for PS5](https://github.com/freefelt/Transmission-PS5#-install)
+[How to install](https://github.com/freefelt/Transmission-PS5#-install)
