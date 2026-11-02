@@ -10,7 +10,7 @@
 [![Release](https://img.shields.io/github/v/release/freefelt/transmission_ps5?label=release)](https://github.com/freefelt/Transmission-PS5/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/freefelt/transmission_ps5/build.yml?label=build)](https://github.com/freefelt/Transmission-PS5/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE)
-[![PS5 firmware](https://img.shields.io/badge/PS5%20firmware-11.20%20tested%20%C2%B7%2010.01%20reported-brightgreen)](#-good-to-know)
+[![PS5 firmware](https://img.shields.io/badge/PS5%20firmware-11.20%20tested%20%C2%B7%2010.01%2C%2011.60%2C%2013.60%20reported-brightgreen)](#-good-to-know)
 [![Transmission](https://img.shields.io/badge/Transmission-4.1.4-d33e2c)](https://transmissionbt.com)
 [![UI](https://img.shields.io/badge/UI-English%20%7C%20Русский-blue)](#-languages)
 [![Downloads](https://img.shields.io/github/downloads/freefelt/transmission_ps5/total)](https://github.com/freefelt/Transmission-PS5/releases)
@@ -20,8 +20,8 @@
 </div>
 
 > [!IMPORTANT]
-> This project is under development, so expect rough edges. It is developed and tested on firmware **11.20**. On **10.01** a user reported that it starts and downloads
-> a torrent (not fully tested); there may be problems on **13.60**; other firmware versions are not verified yet. Your console must **already** be able to run payloads (an ELF loader that listens on port 9021). This
+> This project is under development, so expect rough edges. It is developed and tested on firmware **11.20**. Users report that it works
+> on **10.01**, **11.60** and **13.60**; other firmware versions are not verified yet. Your console must **already** be able to run payloads (an ELF loader that listens on port 9021). This
 > project does not jailbreak anything and does not help with it.
 
 > [!NOTE]
@@ -114,7 +114,7 @@ Without a folder Transmission **refuses** to add torrents. This is on purpose: i
 - **exFAT and FAT32 disks** work, but only with the **USB disk fix** (it is on by default for them). Without it a big torrent can freeze the whole console. The picker shows a red "not recommended" next to such disks.
 - **Do not pull a USB disk out** while torrents are running. Use the eject button (**Unmount the drive**) next to the folder on the settings page (for the console's extended storage it may refuse: then use "Safely remove from PS5" in the console settings).
 - **No password.** The settings page and the web interface are open to everyone in your home network, which is fine at home. Do not forward their ports to the internet.
-- **Tested on firmware 11.20.** On 10.01 it starts and downloads a torrent (a user's report). If you try another one, please tell us how it went (open an issue).
+- **Tested on firmware 11.20.** Users report that it works on 10.01, 11.60 and 13.60. If you try another one, please tell us how it went (open an issue).
 
 ## 🛟 Something does not work?
 
