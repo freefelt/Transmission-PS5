@@ -47,7 +47,7 @@ def seg_d():   # the Transmission web interface in Chrome (web_stack stand: torr
     for th in ("dark", "light"):
         api("POST", "/api/config", {"web_theme": th}); time.sleep(1); node("ui_filter_test.js"); node("ui_layout_test.js")
     api("POST", "/api/config", {"web_theme": "dark"}); time.sleep(1)
-    node("ui_panel_test.js", "A", "color"); node("ui_select_dialog_test.js"); node("ui_console_test.js"); node("ui_dir_test.js"); node("ui_usbfix_test.js")
+    node("ui_panel_test.js", "A", "color"); node("ui_select_dialog_test.js"); node("ui_console_test.js"); node("ui_dir_test.js"); node("ui_usbfix_test.js"); node("ui_filepick_test.js")
     api("POST", "/api/config", {"web_icons": "color"}); time.sleep(1); node("ui_icons_test.js", "color")
     api("POST", "/api/config", {"web_icons": "mono"}); time.sleep(1); node("ui_icons_test.js", "mono"); node("ui_panel_test.js", "A", "mono")
     api("POST", "/api/config", {"web_icons": "color"}); time.sleep(1)

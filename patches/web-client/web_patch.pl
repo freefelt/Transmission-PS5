@@ -21,7 +21,7 @@
 use strict; use warnings;
 use FindBin;
 my $wcdir = $FindBin::Bin;   # the folder of this script: css/ and js/ next to it hold the files that are added to the web client
-my ($src, $dst, $assets) = @ARGV; die "usage: web_patch.pl SRC DST\n" unless $src && $dst;
+my ($src, $dst, $assets, $page) = @ARGV; die "usage: web_patch.pl SRC DST [ASSETS [PAGE_DIR]]\n" unless $src && $dst && $page;
 system("rm -rf '$dst' && mkdir -p '$dst' && cp -a '$src/.' '$dst/'") == 0 or die "copy failed\n";
 
 sub slurp { my $p = shift; open(my $f, '<:raw', $p) or die "open $p: $!"; local $/; my $d = <$f>; close $f; return $d }
@@ -77,6 +77,12 @@ if (defined $assets && -d $assets) {
 
 # --- free space on disks panel ---
 spit("$dst/ps5-panel.js", slurp("$wcdir/js/ps5-panel.js"));
+
+# --- the shared picker (the same file is the download folder picker of the settings page) and the console "choose a
+#     .torrent file" button of the Add Torrents dialog ---
+spit("$dst/ps5-picker.js", slurp("$page/ps5-picker.js"));
+spit("$dst/ps5-picker.css", slurp("$page/ps5-picker.css"));
+spit("$dst/ps5-files.js", slurp("$wcdir/js/ps5-files.js"));
 
 # --- index.html: include the polyfills before the application ---
 # --- interface translation: the ps5-lang.js dictionary (the manager writes it for the selected language) and the ps5-i18n.js translator ---
@@ -419,7 +425,9 @@ $html =~ s{(<script\b[^>]*\bsrc="(?:\./)?transmission-app\.js")}{<script src="ps
 $html =~ s{[ \t]*<link href="\./images/favicon\.ico"[^>]*/>\n}{} or die "index.html has no favicon.ico\n";
 $html =~ s{<link href="\./images/favicon\.svg"[^>]*/>}{<link href="./images/favicon.png" rel="icon" type="image/png" sizes="64x64" />} or die "index.html has no favicon.svg\n";
 $html =~ s{(<script type="text/javascript" src="\./transmission-app\.js"></script>)}{$1\n    <script src="ps5-config.js"></script>\n    <script src="ps5-panel.js"></script>} or die "index.html does not include the panel application\n";
+$html =~ s{(<script src="ps5-panel\.js"></script>)}{<script src="ps5-picker.js"></script>\n    <script src="ps5-files.js"></script>\n    $1} or die "index.html does not include the panel script\n";
 $html =~ s{(<link href="\./transmission-app\.css" rel="stylesheet" />)}{$1\n    <link href="./ps5-theme.css" rel="stylesheet" />\n    <link href="./ps5-icons.css" rel="stylesheet" />} or die "index.html does not include the css\n";
+$html =~ s{(<link href="\./ps5-icons\.css" rel="stylesheet" />)}{$1\n    <link href="./ps5-picker.css" rel="stylesheet" />} or die "index.html does not include the icons css\n";
 # 3) index.html: texts and attributes get data-i18n (ps5-i18n.js translates them when the page loads)
 {
     my @text = ('Drag your torrent files here to add them to Transmission.', 'Inspector', 'Delete', 'Open', 'Show', 'Start', 'Stop', 'Transmission Web Interface');

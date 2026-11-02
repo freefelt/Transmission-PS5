@@ -93,3 +93,10 @@ dialog.dialog-container.popup.ps5-out,#prefs-dialog.ps5-out{animation:ps5dlgout 
 #ps5-diskbar .ps5-disk.crit .ps5-meter i{background-color:#e5484d}
 /* our icon (the one of the payload and of the tab) instead of the stock Transmission logo in the dialogs: Add torrents, Statistics, About, ... */
 .dialog-logo{background:transparent url('images/apple-touch-icon.png') top left no-repeat;background-size:contain}
+/* ps5: the console has no working .torrent file chooser: the Add Torrents dialog gets our own button and the chosen file */
+#ps5-file-row{display:flex;flex-direction:column;gap:6px;margin:0 0 15px}
+#ps5-file-btn{appearance:none;font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--color-border-default);background:var(--color-bg-primary);color:var(--color-fg-primary);cursor:pointer}
+.ps5-file-hint{font-size:13px;line-height:1.35;opacity:.85}
+#ps5-file-chip{display:flex;align-items:center;gap:8px;margin:0 0 15px;padding:8px 10px;border:1px solid var(--color-border-default);border-radius:8px;background:var(--color-bg-primary);color:var(--color-fg-primary);font-size:14px}
+.ps5-file-chip-name{flex:1;min-width:0;word-break:break-all}
+.ps5-file-chip-x{flex:none;width:26px;height:26px;padding:0;border-radius:50%;border:1px solid var(--color-border-default);background:var(--color-bg-popup);color:var(--color-fg-primary);cursor:pointer;font-size:16px;line-height:1}

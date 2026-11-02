@@ -29,7 +29,7 @@ The maintainer (Alexander) tests on a real console (firmware 11.20) and works in
    timers. Run the tests that match your change (`scripts/test.sh <area>` / `pages <segment>`), and the full set once before a release.
    Do not run them after every edit unless the maintainer asks.
 4. **Never claim something works on the console unless it was tried there.** Say exactly what was verified on the Linux host and what was not.
-5. **Test builds between releases** are made with `PS5TM_DEBUG=N ./build.sh` (N counts the builds handed to the maintainer): the page and `shim.log` then say "0.2 debug N" while the file stays `Transmission-0.2.elf`, so two builds of one version can be told apart. Never in a release.
+5. **Test builds between releases** are made with `PS5TM_DEBUG=N ./build.sh` (N counts the builds handed to the maintainer): the page and `shim.log` then say "<VERSION> debug N" (for example "0.4 debug 2") while the file stays `Transmission-<VERSION>.elf`, so two builds of one version can be told apart. Never in a release.
 6. **Raise the version** (`VERSION`, `0.N`: raise the second number, to any larger one, there is no third number) after a change that goes to a console. The first public release, `0.1`, was published on 2026-10-30; releases are made by a tag (`docs/releasing.md`).
 7. **New functionality comes with tests.** A test must fail if the feature is broken; measure the real behaviour first, do not guess.
 8. **Reports are short.** Do not list individual tests: "all tests passed", or a short statement of what failed and why.
@@ -45,9 +45,11 @@ The maintainer (Alexander) tests on a real console (firmware 11.20) and works in
 build.sh                 deps -> build-elf -> check-imports; result build/Transmission-<VERSION>.elf
 VERSION                  0.N; becomes -DSHIM_VERSION and the name of the ELF
 scripts/                 deps.sh (SDK + libraries), build-elf.sh, check-imports.sh, allowed-imports.txt, test.sh
-src/common/              code shared by daemon and manager (log, crash diagnostics, process, volume info, files); compiled twice, once per role
-src/daemon/              the wrapper around Transmission: guard (folder protection), settings enforcement, I/O watchdog, web files, log events
-src/manager/             the manager: C (runtime, launch, procinfo, power, main) and C++ modules, page/ (the settings page)
+src/common/              code shared by daemon and manager (log, crash diagnostics, process, volume info, files); compiled twice, once per role;
+                         fs_list.cc/.h is the shared core of the folder/file picker (path rules, folder listing, disk list), C++ and also compiled into both
+src/daemon/              the wrapper around Transmission: guard (folder protection), settings enforcement, I/O watchdog, web files, log events;
+                         fs_picker.cc is the read-only .torrent file picker behind the RPC method ps5_files
+src/manager/             the manager: C (runtime, launch, procinfo, power, main) and C++ modules, page/ (the settings page and the shared picker)
 src/icon-helper/         the process that registers the icon on the "Media" tab
 src/asm/                 blobs that embed the daemon and the helper in the manager
 src/ps5tm_cfg.h          the public interface between the manager modules
@@ -127,7 +129,7 @@ from the main process used to hang; the order and the separate thread solved it.
 
 ## 4. The settings page and the manager API
 
-- The page is `src/manager/page/` (`index.html`, `style.css`, `settings.js`) and is served on port 9092. Sections: Settings, Advanced
+- The page is `src/manager/page/` (`index.html`, `style.css`, `settings.js`, and `ps5-picker.js` / `ps5-picker.css`, the picker that is shared with the web interface) and is served on port 9092. Sections: Settings, Advanced
   settings, Diagnostics, Credits and licenses are "cards" that are collapsed at every open (the state is not remembered). Tints: settings
   greenish, advanced orange, diagnostics reddish. The notification panel (bell) is at the top right, the full-exit button top left.
 - Animations: `slideShow` (height, padding, opacity in `PS5_ANIM_MS`, 200 ms; the first 2 s after load have none; `prefers-reduced-motion`
@@ -174,6 +176,18 @@ What we add (the main items):
 - Error texts: the web client reads `error.data.errorString`, the daemon (JSON-RPC 2.0) sends `error_string`; `ps5-compat.js` wraps
   `fetch` and shows an `alert` for `session_set`, `torrent_set_location` and the like. Duplicate alerts ("Error adding ...") are dropped.
   On the console (`PlayStation` in the user agent, class `ps5-console` on `<html>`) the file chooser of "Add torrents" is hidden.
+- **The .torrent file picker of the console** (`ps5-files.js`, plus the shared `ps5-picker.js` / `ps5-picker.css` that the settings page uses
+  for download folders). The stock file chooser does not work in the PS5 browser, so the Add dialog gets a "Choose a .torrent file" button:
+  the same picker lists the connected disks and folders, shows only `*.torrent` files and returns the chosen path. The file is added by
+  `torrent-add` with `filename` (the daemon reads the .torrent itself; nothing is uploaded), and a failure is shown in our own window. The
+  list comes from the read-only RPC method `ps5_files` (`{}` = the disks: `/data` and the connected `/mnt/extN`, `/mnt/usbN`; `{path}` =
+  the subfolders and the `*.torrent` files); the manager is not involved. The listing and the path rules are the shared C++ code of
+  `src/common/fs_list.cc`, so the folder picker and the file picker use the same logic (the folder picker keeps the config.cfg limits:
+  300 characters and no " #"; a .torrent file may contain " #"). The button is in the Add dialog only on the console. Verified by the maintainer on a console (0.4): a file is chosen and added.
+  `ps5_files` runs in the RPC thread of the daemon (the folder picker of the settings page runs in the manager): a USB disk that hangs inside `opendir`/`readdir` (the
+  I/O watchdog does not wrap them) holds up the answers of the daemon until the call returns; accepted, because a daemon that has such a disk is usually already stuck on writes to it.
+  A file or folder name that is not valid UTF-8 is left out of the listing (`valid_utf8` in `fs_list.cc`; it could not be chosen anyway, and the daemon's JSON parser might refuse the whole answer); the manager's folder picker shares this rule.
+  The picker adds the torrent by its own `torrent_add` (path, folder, "start when added"); the stock 4.1.4 Add dialog has no priority field, and the USB disk fix is added by the `fetch` wrapper of `ps5-compat.js`.
 - **The `.torrent` filter of the file picker** (`accept=".torrent,application/x-bittorrent"` of the add dialog): `web_patch.pl` clears
   `accept` on touch devices (`navigator.maxTouchPoints > 0`), because the iOS Files picker greys out `.torrent` files when the filter is
   set and iPadOS in desktop mode reports a "Macintosh" UA. The 4.1.4 release archive ships a **prebuilt** `web/public_html/transmission-app.js`
@@ -387,6 +401,7 @@ The tests start the real daemon and manager on **Linux x86_64 with root** and em
 - **Timing** (full run of 0.0.60, 2026-10-23): suites about 30 minutes (slowest: system service and game pause 267 s, network change restart 180 s, autosleep about 106 s, sleep actions and the no-restart test about 100 s), pages about 12 minutes (settings 110 s,
   daemon card 55 s, sleep 48 s, webui 276 s, effects 91 s, language 28 s, webui-language 77 s). The full run on 0.0.70 (34 suites) passed. A time accelerator for the app timers was proposed and **declined**; parallel suites were not chosen.
 - Patches the tests do not need: the old libevent poll patch was removed after a full run without it passed.
+- **The picker**: `webconfig/test_torrent_files_rpc.py` checks the new `ps5_files` method (the disk list, the `.torrent`-only listing, the hidden/service names, the 500-entry cut, the refused paths) and adding a torrent by the path of a `.torrent` file; `tests/web/ui_filepick_test.js` (Chrome, UA "PlayStation") checks the console button, the picker, the `filename` request and the error window. The settings page's folder picker is still covered by `tests/web/ui_picker_test.js`; its ids and classes are kept by the shared picker.
 
 ## 10. Open questions to testers (firmware and disks)
 

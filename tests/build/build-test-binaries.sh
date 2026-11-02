@@ -42,6 +42,10 @@ compile_c_role() { # object-dir  role-flags  sources...  (src/common/*.c is comp
     done
 }
 compile_c_role "$OUT/obj-daemon" "-DPS5TM_DAEMON -DPS5TM_HOST_TEST" "$SRCDIR"/common/*.c "$SRCDIR"/daemon/*.c
+# the shared picker core and the daemon-side file picker (C++; the daemon links C++ anyway)
+for f in "$SRCDIR"/common/fs_list.cc "$SRCDIR"/daemon/fs_picker.cc; do
+    clang++-18 -stdlib=libc++ -O2 -fPIC -std=gnu++17 -Wall -Wextra -I"$SRCDIR" -I"$SRCDIR/common" -I"$GEN" -c "$f" -o "$OUT/obj-daemon/$(basename "$f" .cc).o"
+done
 objcopy --redefine-sym main=tr_daemon_main "$D/CMakeFiles/transmission-daemon.dir/daemon.cc.o" daemon_main.o
 LINK="$(cat "$D/CMakeFiles/transmission-daemon.dir/link.txt")"
 LINK="${LINK//CMakeFiles\/transmission-daemon.dir\/daemon.cc.o/$OUT/daemon_main.o}"
@@ -49,9 +53,10 @@ LINK="${LINK//-o transmission-daemon/-o $OUT/transmission_d_host $OUT/obj-daemon
 ( cd "$D" && eval "$LINK" ) 2>&1 | tail -3
 # the manager (the daemon is embedded)
 compile_c_role "$OUT/obj-manager" "-DPS5TM_MANAGER" "$SRCDIR"/common/*.c "$SRCDIR"/manager/*.c
-# the manager (settings server, supervisor, notifications, system service ...): src/manager/*.cc, one object each
+# the manager (settings server, supervisor, notifications, system service ...): src/manager/*.cc, one object each;
+# plus the shared picker core (src/common/fs_list.cc)
 UI_OBJS=()
-for f in "$SRCDIR"/manager/*.cc; do
+for f in "$SRCDIR"/manager/*.cc "$SRCDIR"/common/fs_list.cc; do
     o="ui_$(basename "$f" .cc).o"
     clang++-18 -stdlib=libc++ -O2 -fPIC -std=gnu++17 -Wall -Wextra -I"$SRCDIR" -DPS5TM_TEST_INHERIT_NONBLOCK -DPS5TM_SPACE_CHECK_SECONDS=5 -I"$GEN" -DPS5TM_TR_VERSION='"4.1.4"' ${UI_FLAGS:-} -c "$f" -o "$o"
     UI_OBJS+=("$o")

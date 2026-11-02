@@ -1,0 +1,80 @@
+Subject: new RPC method ps5_files
+
+The read-only file picker of the web interface: {} returns the connected disks, { path } the subfolders and the
+*.torrent files of a folder. The listing logic is the shared picker core (src/common/fs_list.cc and
+src/daemon/fs_picker.cc); this patch only calls it and parses the JSON into the RPC answer.
+
+---
+--- a/libtransmission/rpcimpl.cc
++++ b/libtransmission/rpcimpl.cc
+@@ -65,6 +65,10 @@
+ extern "C" int ps5tm_guard_check_session_dir(char const* path, int kind, char* msg, size_t msg_size);
+ extern "C" int ps5tm_guard_default_dir(char const* session_dir, char* out, size_t out_size);
+ 
++// PS5 guard v9: the read-only file picker of the web interface (implemented in the daemon wrapper: src/daemon/fs_picker.cc, src/common/fs_list.cc)
++extern "C" int ps5tm_files_json(char const* path, int want_files, char const* ext, char* out, size_t out_size, int* truncated, int* error);
++extern "C" int ps5tm_disks_json(char* out, size_t out_size);
++
+ namespace JsonRpc
+ {
+ // https://www.jsonrpc.org/specification#error_object
+@@ -2935,6 +2939,44 @@
+     return { JsonRpc::Error::SUCCESS, {} };
+ }
+ 
++// PS5 guard v9: the read-only method ps5_files for the file picker of the web interface. {} -> the connected disks;
++// { path } -> the subfolders and the *.torrent files of a folder (the shared picker core builds the JSON, here it is parsed).
++[[nodiscard]] std::pair<JsonRpc::Error::Code, std::string> ps5Files(tr_session* /*session*/, tr_variant::Map const& args_in, tr_variant::Map& args_out)
++{
++    auto const path = args_in.value_if<std::string_view>(tr_quark_new("path"sv)).value_or(""sv);
++    std::vector<char> buf(512U * 1024U);
++    int truncated = 0;
++    int error = 0;
++    if (std::empty(path))
++    {
++        if (ps5tm_disks_json(buf.data(), buf.size()) != 0)
++        {
++            return { JsonRpc::Error::INTERNAL_ERROR, "the disk list does not fit" };
++        }
++    }
++    else
++    {
++        std::string const p{ path };
++        if (ps5tm_files_json(p.c_str(), 1, ".torrent", buf.data(), buf.size(), &truncated, &error) != 0)
++        {
++            args_out.try_emplace(tr_quark_new("ok"sv), false);
++            args_out.try_emplace(tr_quark_new("error"sv), std::string_view{ error == 1 ? "outside" : error == 2 ? "nodir" : "badpath" });
++            return { JsonRpc::Error::SUCCESS, {} };
++        }
++    }
++    (void)truncated;
++
++    auto serde = tr_variant_serde::json();
++    auto parsed = serde.parse(std::string_view{ buf.data() });
++    auto* const map = parsed ? parsed->get_if<tr_variant::Map>() : nullptr;
++    if (map == nullptr)
++    {
++        return { JsonRpc::Error::INTERNAL_ERROR, "cannot parse the picker answer" };
++    }
++    args_out = std::move(*map);
++    return { JsonRpc::Error::SUCCESS, {} };
++}
++
+ using SyncHandler = std::pair<JsonRpc::Error::Code, std::string> (*)(tr_session*, tr_variant::Map const&, tr_variant::Map&);
+ 
+ auto const sync_handlers = small::max_size_map<tr_quark, std::pair<SyncHandler, bool /*has_side_effects*/>, 20U>{ {
+@@ -3087,6 +3129,14 @@
+         tr_rpc_idle_done(data, ps5_err, ps5_errmsg);
+         return;
+     }
++
++    // PS5 guard v9: the read-only file picker of the web interface (the same pattern as ps5_folders)
++    if (method_name == "ps5_files"sv)
++    {
++        auto const [ps5_err, ps5_errmsg] = ps5Files(session, *params, data->args_out);
++        tr_rpc_idle_done(data, ps5_err, ps5_errmsg);
++        return;
++    }
+ 
+     // couldn't find a handler
+     tr_rpc_idle_done(data, Error::METHOD_NOT_FOUND, {});

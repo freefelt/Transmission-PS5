@@ -29,6 +29,7 @@ The PS5 build applies `ps5/` then `transmission/`; the test build applies `trans
 - `0004`, `0006`, `0007`, `0008`: **downloading to FAT disks** (exFAT and FAT32 have no sparse files, a write far from the start fills the gap with zeroes and hangs the console): sequential download, strict piece order, a 64 MiB window, and a per-torrent choice of the "USB disk fix".
 - `0005`: the torrent state is saved 20 s after changes instead of 6 minutes (a restart no longer returns a new torrent to the default folder), and the priority boost for the first and the last pieces of files is gone (it stretched files to their full size at once).
 - `0012`: the DHT looks up its bootstrap name (`dht.transmissionbt.com`) in a background thread, so a DNS server that does not answer cannot hold up the start of the daemon (the other lookups are limited by `src/daemon/dns.c`).
+- `0013`: the read-only RPC method `ps5_files` for the .torrent file picker of the console: the connected disks, the subfolders and the `*.torrent` files of a folder. The listing and the path rules are the shared code of `src/common/fs_list.cc` (also used by the folder picker of the settings page); the patch only calls it (`src/daemon/fs_picker.cc`) and parses the JSON.
 - `0009` to `0011`: the RPC method `ps5_folders` (the folder list with the state of the disks, and their file systems) and the `torrent-get` field `ps5_in_folder`, used by the web interface.
 
 ### Adding or changing a patch

@@ -4,8 +4,12 @@
 
 #include "ui_internal.h"
 
+#include "common/fs_list.h"
+
 namespace ps5tm_ui
 {
+
+using ps5tm_fs::join_path;
 
 pthread_mutex_t g_folders_edit_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -40,121 +44,39 @@ static Volume probe_volume(std::string const& path)
 }
 
 // Parse and normalize the path: "" if all is well (comps is filled), otherwise the error text for the user.
+// The common rules live in ps5tm_fs::normalize_common; the config.cfg limits (300 characters, no " #") are the
+// download-folder rules of this page and stay here.
 std::string normalize_folder(std::string in, std::vector<std::string>& comps)
 {
-    while (!in.empty() && (in.back() == ' ' || in.back() == '\t'))
+    std::string normalized;
+    std::string trimmed;
+    switch (ps5tm_fs::normalize_common(in, comps, normalized, trimmed, 300, true))
     {
-        in.pop_back();
-    }
-    std::size_t begin = 0;
-    while (begin < in.size() && (in[begin] == ' ' || in[begin] == '\t'))
-    {
-        ++begin;
-    }
-    in = in.substr(begin);
-    if (in.empty())
-    {
+    case ps5tm_fs::Code::Ok:
+        return "";
+    case ps5tm_fs::Code::Empty:
+        return ps5tm_tr("mr_f_enter");
+    case ps5tm_fs::Code::Relative:
+        return ps5tm_tr("mr_f_slash");
+    case ps5tm_fs::Code::TooLong:
+        return ps5tm_tr("mr_f_long");
+    case ps5tm_fs::Code::Control:
+        return ps5tm_tr("mr_f_chars");
+    case ps5tm_fs::Code::SpaceHash:
+        return ps5tm_tr("mr_f_space");
+    case ps5tm_fs::Code::Dots:
+        return ps5tm_tr("mr_f_dots");
+    case ps5tm_fs::Code::Root:
+        return ps5tm_tr("mr_f_root");
+    default:
         return ps5tm_tr("mr_f_enter");
     }
-    if (in[0] != '/')
-    {
-        return ps5tm_tr("mr_f_slash");
-    }
-    if (in.size() > 300)
-    {
-        return ps5tm_tr("mr_f_long");
-    }
-    for (unsigned char const c : in)
-    {
-        if (c < 0x20 || c == 0x7f)
-        {
-            return ps5tm_tr("mr_f_chars");
-        }
-    }
-    if (in.find(" #") != std::string::npos)
-    {
-        return ps5tm_tr("mr_f_space");
-    }
-    comps.clear();
-    std::size_t i = 0;
-    while (i <= in.size())
-    {
-        auto j = in.find('/', i);
-        if (j == std::string::npos)
-        {
-            j = in.size();
-        }
-        std::string const part = in.substr(i, j - i);
-        if (part == "..")
-        {
-            return ps5tm_tr("mr_f_dots");
-        }
-        if (!part.empty() && part != ".")
-        {
-            comps.push_back(part);
-        }
-        i = j + 1;
-    }
-    if (comps.empty())
-    {
-        return ps5tm_tr("mr_f_root");
-    }
-    return "";
-}
-
-static std::string join_path(std::vector<std::string> const& comps, std::size_t count)
-{
-    std::string out;
-    for (std::size_t i = 0; i < count && i < comps.size(); ++i)
-    {
-        out += "/" + comps[i];
-    }
-    return out;
 }
 
 // 1 = M.2 SSD (/mnt/extN), 2 = USB stick (/mnt/usbN), 3 = internal disk (/data/...), 0 = another place. root: the disk root.
 int folder_kind(std::vector<std::string> const& c0, std::string& root)
 {
-    // The path may be an alias (BindMount: /data/ext1 is /mnt/ext1): first the real path, then the disk kind. Nothing is hardcoded: this is asked from the system.
-    std::vector<std::string> c = c0;
-    {
-        std::string const full = join_path(c0, c0.size());
-        char real[600];
-        if (ps5tm_resolve_alias(full.c_str(), real, sizeof(real)) != 0 && real[0] == '/')
-        {
-            std::vector<std::string> parts;
-            std::string const rs{ real };
-            std::size_t i = 0;
-            while (i <= rs.size())
-            {
-                auto j = rs.find('/', i);
-                if (j == std::string::npos)
-                {
-                    j = rs.size();
-                }
-                if (j > i)
-                {
-                    parts.push_back(rs.substr(i, j - i));
-                }
-                i = j + 1;
-            }
-            if (!parts.empty())
-            {
-                c = parts;
-            }
-        }
-    }
-    if (c[0] == "mnt" && c.size() >= 2 && c[1].size() == 4 && c[1][3] >= '0' && c[1][3] <= '9' && (c[1].compare(0, 3, "ext") == 0 || c[1].compare(0, 3, "usb") == 0))
-    {
-        root = "/mnt/" + c[1];
-        return ps5tm_disk_kind_of_root(root.c_str()); // by device: 1 = M.2 SSD (/dev/ssd*), 2 = USB (/dev/es*.crypt, /dev/da*); the mount point name does not determine the kind
-    }
-    if (c[0] == "data" && c.size() >= 2)
-    {
-        root = "/data";
-        return 3;
-    }
-    return 0;
+    return ps5tm_fs::folder_kind(c0, root);
 }
 
 static char const* kind_name(int kind)
@@ -531,64 +453,12 @@ std::string fs_list_json(std::string const in)
     {
         return fs_error(bad);
     }
-    DIR* d = opendir(path.c_str());
-    if (d == nullptr)
+    ps5tm_fs::Listing const listing = ps5tm_fs::list_dir(path, root, false, "");
+    if (listing.code != ps5tm_fs::Code::Ok)
     {
         return fs_error(ps5tm_tr("mr_fs_nodir"));
     }
-    std::vector<std::string> dirs;
-    bool truncated = false;
-    while (dirent* e = readdir(d))
-    {
-        std::string const name = e->d_name;
-        if (name.empty() || name[0] == '.' || name == "lost+found" || name == "System Volume Information" || name == "$RECYCLE.BIN" || (path == "/data" && name == "Transmission"))
-        {
-            continue;
-        }
-        bool is_dir = e->d_type == DT_DIR;
-        if (e->d_type == DT_UNKNOWN || e->d_type == DT_LNK)
-        {
-            struct stat st;
-            is_dir = stat((path + "/" + name).c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-        }
-        if (!is_dir)
-        {
-            continue;
-        }
-        if (dirs.size() >= 5000)
-        {
-            truncated = true;
-            break;
-        }
-        dirs.push_back(name);
-    }
-    closedir(d);
-    std::sort(dirs.begin(), dirs.end(),
-              [](std::string const& a, std::string const& b)
-              {
-                  std::string la = a;
-                  std::string lb = b;
-                  for (auto& c : la)
-                  {
-                      c = (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-                  }
-                  for (auto& c : lb)
-                  {
-                      c = (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
-                  }
-                  return la != lb ? la < lb : a < b;
-              });
-    if (dirs.size() > 500)
-    {
-        dirs.resize(500); // show the first 500 alphabetically
-        truncated = true;
-    }
-    std::string out = "{\"path\":" + jstr(path) + ",\"root\":" + jstr(root) + ",\"dirs\":[";
-    for (std::size_t i = 0; i < dirs.size(); ++i)
-    {
-        out += std::string{ i != 0 ? "," : "" } + jstr(dirs[i]);
-    }
-    return out + "],\"truncated\":" + jbool(truncated) + "}";
+    return ps5tm_fs::listing_json(listing, false);
 }
 
 std::string fs_mkdir_json(std::string const in, std::string name)

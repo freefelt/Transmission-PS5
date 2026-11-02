@@ -97,6 +97,7 @@ Without a folder Transmission **refuses** to add torrents. This is on purpose: i
 
 1. Open **`http://<your PS5 IP>:9091`** (for example `http://192.168.1.42:9091`). This is the Transmission page.
 2. Press **Open torrent**, paste a link (or choose a file), pick your folder from the tiles and press **Add**.
+   In the PS5 browser the native file chooser does not work: press **Choose a .torrent file**, pick the file on a disk of the console (Data, M.2 SSD or a USB drive) and then **Add**.
 3. Watch it download. 🚀
 
 > [!TIP]

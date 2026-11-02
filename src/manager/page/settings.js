@@ -374,42 +374,22 @@ function umRun(force){umState('work');api('/api/folders',{action:'unmount',path:
 $('umGo').onclick=function(){umRun(false)};
 $('umForce').onclick=function(){umRun(true)};
 $('umCancel').onclick=function(){popClose($('fdUmModal'));umFolder=null};
-/* Download folder picker: a dialog with drive selection, drive contents and folder creation */
-var pkRoot='',pkPath='',pkSeq=0;
-var PK_FOLDER='<svg class="pk-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2.2h7A2.5 2.5 0 0 1 21 8.7v9.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5z"/></svg>';
-var PK_UP='<svg class="pk-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l-7 7h4v7h6v-7h4z"/></svg>';
-function pkMsg(t,bad){var m=$('pkMsg');m.textContent=t||'';m.className='msg'+(bad?' bad':'')}
+/* Download folder picker: the shared ps5-picker.js module (the same module chooses .torrent files on the Transmission
+ * page). The module draws the dialog and calls back here; the manager gives it /api/fs and adds the chosen folder. */
 function pkDisks(){var a=[];(fdCand||[]).forEach(function(c){a.push({root:c.root,kind:c.kind,fs:c.fs,fsbad:c.fsbad,free:c.free,total:c.total})});a.push({root:'/data',kind:'int',free:0,total:0});return a}
-function pkOpen(){var d=pkDisks(),sel=$('pkDisk');sel.innerHTML='';
- d.forEach(function(x){var o=document.createElement('option');o.value=x.root;o.textContent=x.root+' · '+FD_KIND[x.kind]+(x.fs?' ('+x.fs+')':'')+(x.total?', free '+fdSize(x.free)+' of '+fdSize(x.total):'')+(x.fsbad||x.kind==='int'?', not recommended':'');sel.appendChild(o)});
- var pick=d.filter(function(x){return x.kind==='ssd'&&x.root==='/mnt/ext1'})[0]||d.filter(function(x){return x.kind==='ssd'})[0]||d.filter(function(x){return x.kind==='usb'})[0]||d[d.length-1];
- sel.value=pick.root;pkRoot=pick.root;$('pkNew').style.display='none';pkMsg('');popOpen($('fdPickModal'),'flex');pkLoad(pick.root)}
-function pkLoad(path){var seq=++pkSeq;pkMsg('');
- api('/api/fs',{action:'list',path:path},function(c,j){if(seq!==pkSeq)return;
-  if(c!==200||!j||!j.dirs){pkPath='';$('pkList').innerHTML='';$('pkCrumbs').innerHTML='';$('pkChoose').disabled=true;pkMsg((j&&j.error)||'Could not open the folder',true);return}
-  pkPath=j.path;pkRender(j);
-  var bare=pkPath==='/data';$('pkChoose').disabled=bare;if(bare)pkMsg('You cannot use /data itself: go into a folder or create a new one.')})}
-function pkRender(j){var cr=$('pkCrumbs');cr.innerHTML='';
- var rel=pkPath.substring(pkRoot.length).split('/').filter(Boolean),acc=pkRoot;
- function crumb(label,path,cur){var b=document.createElement('button');b.type='button';b.className='pk-crumb'+(cur?' cur':'');b.textContent=label;if(!cur)b.onclick=function(){pkLoad(path)};cr.appendChild(b)}
- function sep(){var s=document.createElement('span');s.className='pk-sep';s.textContent='›';cr.appendChild(s)}
- crumb(pkRoot,pkRoot,rel.length===0);rel.forEach(function(seg,i){sep();acc+='/'+seg;crumb(seg,acc,i===rel.length-1)});
- var list=$('pkList');list.innerHTML='';
- function row(cls,icon,label,go){var r=document.createElement('div');r.className='pk-row '+cls;r.tabIndex=0;r.setAttribute('role','option');r.innerHTML=icon;var n=document.createElement('span');n.className='pk-name';n.textContent=label;r.appendChild(n);r.onclick=go;r.onkeydown=function(e){if(e.key==='Enter'||e.keyCode===13){e.preventDefault();go()}};list.appendChild(r)}
- if(pkPath!==pkRoot)row('up',PK_UP,'Back',function(){pkLoad(pkPath.substring(0,pkPath.lastIndexOf('/'))||pkRoot)});
- j.dirs.forEach(function(name){row('',PK_FOLDER,name,function(){pkLoad(pkPath+'/'+name)})});
- if(!j.dirs.length){var e=document.createElement('div');e.className='pk-empty';e.textContent='No subfolders';list.appendChild(e)}
- if(j.truncated){var t=document.createElement('div');t.className='pk-empty';t.textContent='The first 500 folders are shown';list.appendChild(t)}
- list.scrollTop=0}
-$('pkDisk').onchange=function(){pkRoot=this.value;$('pkNew').style.display='none';pkLoad(pkRoot)};
-$('pkNewBtn').onclick=function(){$('pkNew').style.display='flex';$('pkName').value='';$('pkName').focus()};
-$('pkMakeCancel').onclick=function(){$('pkNew').style.display='none';pkMsg('')};
-function pkMake(){pkMsg('');api('/api/fs',{action:'mkdir',path:pkPath,name:$('pkName').value},function(c,j){
- if(c===200&&j&&j.ok){$('pkNew').style.display='none';pkLoad(j.path);pkMsg('Folder created')}else pkMsg((j&&j.error)||'Could not create the folder',true)})}
-$('pkMake').onclick=pkMake;
-$('pkName').onkeydown=function(e){if(e.key==='Enter'||e.keyCode===13){e.preventDefault();pkMake()}};
-$('pkCancel').onclick=function(){popClose($('fdPickModal'))};
-$('pkChoose').onclick=function(){var p=pkPath;if(!p||p==='/data')return;popClose($('fdPickModal'));if(p)fdAdd(p,false)};
+function pkList(path){return new Promise(function(resolve,reject){
+ api('/api/fs',{action:'list',path:path},function(c,j){
+  if(c===200&&j&&j.dirs)resolve(j);else reject(new Error((j&&j.error)||'Could not open the folder'))})})}
+function pkMkdir(path,name){return new Promise(function(resolve,reject){
+ api('/api/fs',{action:'mkdir',path:path,name:name},function(c,j){
+  if(c===200&&j&&j.ok)resolve(j);else reject(new Error((j&&j.error)||'Could not create the folder'))})})}
+function pkOpen(){ps5Picker.open({overlayId:'fdPickModal',overlayClass:'modal',boxClass:'modal-card pk-card',title:'Choose a download folder',mode:'folder',
+ chooseLabel:'Choose this folder',disks:pkDisks,list:pkList,mkdir:pkMkdir,
+ canChoose:function(e){return e.path!=='/data'},
+ cannotChooseText:'You cannot use /data itself: go into a folder or create a new one.',
+ diskBad:function(d){return d.kind==='int'||d.fsbad},
+ onChoose:function(e){fdAdd(e.path,false)}})}
+ps5Picker.preload({overlayId:'fdPickModal',overlayClass:'modal',boxClass:'modal-card pk-card'});
 $('fdShowAdd').onclick=function(){fdMsg('');pkOpen()};
 $('fdCancel').onclick=function(){popClose($('fdModal'));fdPending=null};
 $('fdConfirm').onclick=function(){popClose($('fdModal'));if(fdPending!==null){var p=fdPending;fdPending=null;fdAdd(p,true)}};
@@ -418,7 +398,7 @@ function fdRemove(p){fdDelPending=p;$('fdDelPath').textContent=p;popOpen($('fdDe
 $('fdDelCancel').onclick=function(){popClose($('fdDelModal'));fdDelPending=null};
 $('fdDelConfirm').onclick=function(){var p=fdDelPending;popClose($('fdDelModal'));fdDelPending=null;if(p===null)return;
  api('/api/folders',{action:'remove',path:p},function(c,j){if(c!==200)fdMsg((j&&j.error)||'Could not remove',true);else fdMsg('Folder removed');fdRefresh()})};
-document.addEventListener('keydown',function(e){if(e.key==='Escape'||e.keyCode===27){$('fdCancel').onclick();$('fdDelCancel').onclick();$('pkCancel').onclick();$('umCancel').onclick();$('actCancel').onclick();$('cfmCancel').onclick()}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'||e.keyCode===27){$('fdCancel').onclick();$('fdDelCancel').onclick();$('umCancel').onclick();$('actCancel').onclick();$('cfmCancel').onclick()}});
 fdRefresh();setInterval(fdRefresh,10000);
 $('dgThreads').onclick=function(){dgGet('/api/diag/threads','Threads')};
 $('dgLog').onclick=function(){dgGet('/api/diag/log','Log')};

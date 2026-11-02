@@ -220,7 +220,7 @@ rm -rf "$GEN/web_assets" && mkdir -p "$GEN/web_assets"
 cp "$REPO/resources/web/favicon.png" "$REPO/resources/web/apple-touch-icon.png" \
    "$WEBCLIENT/icons/ps5-icons-color.css" "$WEBCLIENT/icons/ps5-icons-mono.css" "$GEN/web_assets/"
 
-perl "$WEBCLIENT/web_patch.pl" "$TR_SRC/web/public_html" "$GEN/web_public_html" "$GEN/web_assets" || die "failed to patch the web interface"
+perl "$WEBCLIENT/web_patch.pl" "$TR_SRC/web/public_html" "$GEN/web_public_html" "$GEN/web_assets" "$SRCDIR/manager/page" || die "failed to patch the web interface"
 grep -q "ps5-theme-dark" "$GEN/web_public_html/index.html" 2>/dev/null || [ -f "$GEN/web_public_html/ps5-theme-dark.css" ] || die "no theme in the web interface"
 grep -q "ps5: default theme for browsers without @media(prefers-color-scheme)" "$GEN/web_public_html/transmission-app.css" || die "no default theme in the web interface"
 
@@ -264,6 +264,11 @@ compile_c_role() { # role-macro  object-dir  sources...
     done
 }
 compile_c_role PS5TM_DAEMON "$GEN/obj-daemon" "$SRCDIR"/common/*.c "$SRCDIR"/daemon/*.c
+# The shared picker core (src/common/fs_list.cc) and the daemon-side file picker (src/daemon/fs_picker.cc) are C++:
+# the daemon links C++ anyway (it is Transmission). They go into the same object folder as the C wrapper of the daemon.
+for f in "$SRCDIR"/common/fs_list.cc "$SRCDIR"/daemon/fs_picker.cc; do
+    "$CXX" -O2 -fPIC -std=gnu++17 -Wall -Wextra -I"$SRCDIR" -I"$SRCDIR/common" -I"$GEN" -c "$f" -o "$GEN/obj-daemon/$(basename "$f" .cc).o"
+done
 compile_c_role PS5TM_MANAGER "$GEN/obj-manager" "$SRCDIR"/common/*.c "$SRCDIR"/manager/*.c
 
 # Icons (PNG files in resources/) as C arrays for the ELF
@@ -271,15 +276,15 @@ bytes_header icon0_png "$REPO/resources/icon0.png" >"$GEN/icon0.h"
 bytes_header icon128_png "$REPO/resources/icon128.png" >"$GEN/icon128.h"
 bytes_header iconfav_png "$REPO/resources/iconfav.png" >"$GEN/iconfav.h"
 
-# The settings page: src/manager/page/index.html with style.css and settings.js put in at the @@STYLE@@ and @@SCRIPT@@ lines,
-# as one C string (the page has no external resources: it is served as a single document)
+# The settings page: src/manager/page/index.html with style.css + ps5-picker.css and ps5-picker.js + settings.js put in at the @@STYLE@@
+# and @@SCRIPT@@ lines, as one C string (the page has no external resources: it is served as a single document)
 perl -e '
     my $dir = shift; local $/;
     sub slurp { open(my $f, "<:raw", "$dir/$_[0]") or die "open $_[0]: $!"; my $d = <$f>; close $f; return $d }
     my $html = slurp("index.html");
-    for my $m (["\@\@STYLE\@\@\n", "style.css"], ["\@\@SCRIPT\@\@\n", "settings.js"]) {
+    for my $m (["\@\@STYLE\@\@\n", ["style.css", "ps5-picker.css"]], ["\@\@SCRIPT\@\@\n", ["ps5-picker.js", "settings.js"]]) {
         my $i = index($html, $m->[0]); die "no $m->[0] in index.html\n" if $i < 0;
-        substr($html, $i, length($m->[0])) = slurp($m->[1]);
+        substr($html, $i, length($m->[0])) = join("", map { slurp($_) } @{ $m->[1] });
     }
     print "static char const kPageHtml[] = R\"HTML(" . $html . ")HTML\";\n";
 ' "$SRCDIR/manager/page" >"$GEN/ps5tm_page.h"
@@ -287,9 +292,10 @@ perl -e '
 # Settings page languages: the built-in Russian and English tables (locales/*.strings of the project) become one header.
 # Other languages are put by the user into /data/Transmission/locales, the built-in ones cannot be broken.
 { printf 'static char const kLangRuStrings[] = R"LANG(\n'; cat "$LOCALES/ru.strings"; printf '\n)LANG";\nstatic char const kLangEnStrings[] = R"LANG(\n'; cat "$LOCALES/en.strings"; printf '\n)LANG";\n'; } >"$GEN/ps5tm_lang_data.h"
-# the manager (settings server, supervisor, notifications, system service ...): src/manager/*.cc, one object each
+# the manager (settings server, supervisor, notifications, system service ...): src/manager/*.cc, one object each;
+# plus the shared picker core (src/common/fs_list.cc)
 UI_OBJS=()
-for f in "$SRCDIR"/manager/*.cc; do
+for f in "$SRCDIR"/manager/*.cc "$SRCDIR"/common/fs_list.cc; do
     o="$GEN/ui_$(basename "$f" .cc).o"
     "$CXX" -O2 -fPIC -std=gnu++17 -Wall -Wextra -DPS5TM_TR_VERSION="\"$TR_VER\"" -I"$SRCDIR" -I"$GEN" -c "$f" -o "$o"
     UI_OBJS+=("$o")

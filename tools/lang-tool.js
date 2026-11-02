@@ -15,7 +15,9 @@ const fs = require('fs');
 
 function pageText(dir) {
   const rd = (n) => fs.readFileSync(`${dir}/${n}`, 'utf8');
-  return [rd('index.html').replace('@@STYLE@@\n', () => rd('style.css')).replace('@@SCRIPT@@\n', () => rd('settings.js'))];
+  return [rd('index.html')
+    .replace('@@STYLE@@\n', () => rd('style.css') + rd('ps5-picker.css'))
+    .replace('@@SCRIPT@@\n', () => rd('ps5-picker.js') + rd('settings.js'))];
 }
 
 function fragments(text) {
