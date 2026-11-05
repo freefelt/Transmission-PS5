@@ -3,10 +3,12 @@
 All notable changes of the released versions. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 the heading of every version is `## [<version>]` (no date: the date of a release is on its GitHub Releases page), and the text under it
 becomes the notes of the GitHub release (see `docs/releasing.md`). A release only needs `VERSION` to be raised and the section to be written.
+Every bullet is ONE line (no wrapped lines). `VERSION` is raised only after the current version has been tagged: until then new changes go into the section of that version.
 
 ## [0.4]
 
 ### Changes
+- The "Add Torrents" dialog on a computer or an iPad shows our own "Browse…" button and our own line with the chosen file names instead of the browser's file control, so they follow the language of the interface (the browser drew its button and "No files selected." in its own language: on a Russian page in an English browser they stayed English). The console is unchanged.
 - The Add Torrents dialog works on the console: a "Choose a .torrent file" button opens our own picker with the disks of the console (Data, M.2 SSD, USB drives), and the chosen file is added by its path (the daemon reads the .torrent itself). The console browser has no working native file chooser.
 - The download folder picker of the settings page and the new .torrent file picker are one shared module (`ps5-picker.js` / `ps5-picker.css`); the manager uses it with `/api/fs`, the Transmission web interface with the new read-only daemon method `ps5_files`. The shared listing and path rules live in `src/common/fs_list.cc`.
 - A .torrent file can be chosen on any connected disk (and in /data); the download folder list is not involved in reading. The destination folder is still chosen from the download folders, as before.

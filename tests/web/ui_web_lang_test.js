@@ -10,6 +10,8 @@ const post = (path, body) => new Promise((res) => { const d = JSON.stringify(bod
   const open = async () => { await page.goto("http://127.0.0.1:9091/transmission/web/", { waitUntil: "networkidle2" }); await sleep(2500); };
   const look = () => page.evaluate(() => ({ title: document.title, insp: document.getElementById("toolbar-inspector").textContent.trim(), ph: document.getElementById("torrent-search").placeholder, open: !!document.querySelector('[aria-label="Открыть торрент"]'), openEn: !!document.querySelector('[aria-label="Open torrent"]'), lang: window.PS5_I18N && window.PS5_I18N.lang, t1: window.ps5t("Open torrent…"), ago: window.ps5t("{1} ago", ["5 мин"]) }));
   const menuTexts = async () => { await page.evaluate(() => { const b = document.getElementById("toolbar-overflow") || document.querySelector('[id*="overflow"]'); if (b) b.click(); }); await sleep(600); return page.evaluate(() => document.body.innerText); };
+  // The Add Torrents dialog: our own "Browse..." button and "No files selected." line (the browser's own ones are drawn in the language of the BROWSER, here English).
+  const addDialog = async () => { await page.click("#toolbar-open"); await sleep(700); const d = await page.evaluate(() => ({ btn: (document.getElementById("ps5-pick-btn") || {}).textContent || "", names: (document.getElementById("ps5-pick-names") || {}).textContent || "" })); await page.keyboard.press("Escape"); await sleep(400); return d; };
   await post("/api/config", { language: "ru" }); await sleep(1500); await open();
   let r = await look();
   check("RU: the real web client is Russian: title, toolbar button, filter placeholder, aria-labels (translated inside the code and marked in index.html)", r.lang === "ru" && r.title === "Веб-интерфейс Transmission" && r.insp === "Инспектор" && r.ph === "Фильтр" && r.open && !r.openEn, JSON.stringify(r));
@@ -17,6 +19,8 @@ const post = (path, body) => new Promise((res) => { const d = JSON.stringify(bod
   let txt = await menuTexts();
   check("RU: the overflow menu (built by the client code) shows Russian items", /Статистика|Компактные строки|Сочетания клавиш/.test(txt), txt.replace(/\s+/g, " ").slice(0, 160));
   check("RU: no JavaScript errors while the client builds all its texts through ps5t", errors.length === 0, errors.join(";"));
+  let ad = await addDialog();
+  check("RU: the Add Torrents dialog shows OUR button and line in Russian ('Обзор…', 'Файлы не выбраны.'), not the English ones of the browser", ad.btn === "Обзор…" && ad.names === "Файлы не выбраны.", JSON.stringify(ad));
   await post("/api/config", { web_openfolder: "bfpilot" }); await sleep(1500); await open();
   const rpcPage = (m, p) => page.evaluate(async (m, p) => { let sid = ""; for (let i = 0; i < 3; i++) { const r = await fetch("../rpc", { method: "POST", headers: { "X-Transmission-Session-Id": sid, "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", method: m, params: p, id: 1 }) }); if (r.status === 409) { sid = r.headers.get("X-Transmission-Session-Id"); continue; } return await r.json(); } }, m, p);
   await rpcPage("torrent_add", { metainfo: Buffer.from("d8:announce27:http://127.0.0.1:1/announce4:infod6:lengthi65536e4:name6:ru_one12:piece lengthi65536e6:pieces20:" + "\u0007".repeat(20) + "ee", "latin1").toString("base64"), download_dir: "/data/torrents", paused: true });
@@ -33,6 +37,8 @@ const post = (path, body) => new Promise((res) => { const d = JSON.stringify(bod
   check("EN: the same client is English again (nothing translated, nothing broken)", r.lang === "en" && r.title === "Transmission Web Interface" && r.insp === "Inspector" && r.ph === "Filter" && r.openEn && !r.open && r.t1 === "Open torrent…", JSON.stringify(r));
   txt = await menuTexts();
   check("EN: the overflow menu is English", /Statistics|Compact rows|Keyboard shortcuts/.test(txt) && !/Статистика/.test(txt), txt.replace(/\s+/g, " ").slice(0, 160));
+  ad = await addDialog();
+  check("EN: the Add Torrents dialog shows 'Browse…' and 'No files selected.'", ad.btn === "Browse…" && ad.names === "No files selected.", JSON.stringify(ad));
   check("EN: no JavaScript errors", errors.length === 0, errors.join(";"));
   console.log(`\n${pass}/${pass + fail} web client language checks passed`); await browser.close(); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.log("crashed", e); process.exit(2); });

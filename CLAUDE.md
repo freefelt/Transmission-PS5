@@ -30,7 +30,7 @@ The maintainer (Alexander) tests on a real console (firmware 11.20) and works in
    Do not run them after every edit unless the maintainer asks.
 4. **Never claim something works on the console unless it was tried there.** Say exactly what was verified on the Linux host and what was not.
 5. **Test builds between releases** are made with `PS5TM_DEBUG=N ./build.sh` (N counts the builds handed to the maintainer): the page and `shim.log` then say "<VERSION> debug N" (for example "0.4 debug 2") while the file stays `Transmission-<VERSION>.elf`, so two builds of one version can be told apart. Never in a release.
-6. **Raise the version** (`VERSION`, `0.N`: raise the second number, to any larger one, there is no third number) after a change that goes to a console. The first public release, `0.1`, was published on 2026-10-30; releases are made by a tag (`docs/releasing.md`).
+6. **Raise the version** (`VERSION`, `0.N`: raise the second number, to any larger one, there is no third number) after a change that goes to a console, **but only if the current version is already tagged (released)**: check with `git tag --list "$(cat VERSION)"`. If that tag does not exist yet, the version is still open: keep `VERSION` and add the change to its `CHANGELOG.md` section (a second section for the next number would skip an unreleased version). The first public release, `0.1`, was published on 2026-10-30; releases are made by a tag (`docs/releasing.md`).
 7. **New functionality comes with tests.** A test must fail if the feature is broken; measure the real behaviour first, do not guess.
 8. **Reports are short.** Do not list individual tests: "all tests passed", or a short statement of what failed and why.
 9. **Never break the data of existing users** (settings, torrents, `/data/Transmission`): migrations are required.
@@ -176,6 +176,10 @@ What we add (the main items):
 - Error texts: the web client reads `error.data.errorString`, the daemon (JSON-RPC 2.0) sends `error_string`; `ps5-compat.js` wraps
   `fetch` and shows an `alert` for `session_set`, `torrent_set_location` and the like. Duplicate alerts ("Error adding ...") are dropped.
   On the console (`PlayStation` in the user agent, class `ps5-console` on `<html>`) the file chooser of "Add torrents" is hidden.
+  Outside the console it is hidden too and replaced by our own control (`ps5-compat.js`, `#ps5-pick-row`): the browser draws the button
+  "Browse…" and the line "No files selected." itself, in the language of the BROWSER, not of the page (a Russian page in an English browser
+  stayed English, and the page cannot translate them). Our button opens the same native dialog, and our line shows the chosen file names in
+  the page language; the input stays in the form (the dialog reads its files on submit) and is hidden visually (class `ps5-vh`, a transparent pixel-sized box), not with `display:none`, so that Safari and the iPad can open its dialog from a script. Tests: `ui_web_lang_test.js` checks our texts in Russian and English.
 - **The .torrent file picker of the console** (`ps5-files.js`, plus the shared `ps5-picker.js` / `ps5-picker.css` that the settings page uses
   for download folders). The stock file chooser does not work in the PS5 browser, so the Add dialog gets a "Choose a .torrent file" button:
   the same picker lists the connected disks and folders, shows only `*.torrent` files and returns the chosen path. The file is added by
@@ -463,6 +467,6 @@ fixes on a real exFAT disk beyond the maintainer's reports; other firmware versi
 - Read-only disks are not our concern (Transmission shows its own error). The main goal is to minimize the risk to the console; the rest is the maintainer's call.
 - A page for the whole network without a password is deliberate (`rpc-whitelist` limits it to private networks).
 - Python host tests stay (they drive the real daemon); the build and developer tools are shell and Node.
-- The version scheme was `0.0.N` until the first public release `0.1` (2026-10-30); `VERSION` now holds `0.N` (the second number only: `0.2`, `0.3`, even `0.42`; no third number), raise it for the next change that goes to a console or a release, and write a `CHANGELOG.md` section for each release.
-- **Every `CHANGELOG.md` version section ends with a `### Install` line — `[How to install](https://github.com/freefelt/Transmission-PS5#-install)`** (it becomes the GitHub release notes; see `docs/releasing.md`). Do not drop it or change the link text when writing a release. The version heading has no date (`## [<version>]`): a release only needs `VERSION` to be raised and the section to be written; the release date is shown on the GitHub Releases page.
+- The version scheme was `0.0.N` until the first public release `0.1` (2026-10-30); `VERSION` now holds `0.N` (the second number only: `0.2`, `0.3`, even `0.42`; no third number), raise it for the next change that goes to a console or a release **only when the current version is already tagged** (until then new changes go into its `CHANGELOG.md` section), and write a `CHANGELOG.md` section for each release.
+- **Every `CHANGELOG.md` version section ends with a `### Install` line — `[How to install](https://github.com/freefelt/Transmission-PS5#-install)`** (it becomes the GitHub release notes; see `docs/releasing.md`). **Every bullet of a section is ONE line** (no wrapped lines). Do not drop it or change the link text when writing a release. The version heading has no date (`## [<version>]`): a release only needs `VERSION` to be raised and the section to be written; the release date is shown on the GitHub Releases page.
 - The license is GPL-3.0-or-later for the whole project.

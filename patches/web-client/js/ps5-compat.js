@@ -463,6 +463,65 @@ window.ps5Peers = function (el, text) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 0); }); else setTimeout(init, 0);
 })();
 
+/* The native .torrent file control draws its button, "Browse...", and its line, "No files selected.", itself, in the language of the
+ * BROWSER, not of the page: with a Russian page and an English browser they stayed English (the page cannot translate them). So in the
+ * Add Torrents dialog we hide the native control (it stays in the form: the dialog reads its files on submit) and show our own button,
+ * which opens the same native dialog, and our own line with the chosen file names. The link and magnet field stays as it was.
+ * The control is hidden VISUALLY (class ps5-vh: a pixel-sized transparent box), not with display:none: Safari and the iPad open the file
+ * dialog of a hidden input from a script reliably only while the input is still rendered.
+ * The console browser is not touched: it has no working native chooser, ps5-files.js hides the input and puts the picker button there. */
+(function () {
+    if (/PlayStation/i.test(navigator.userAgent || '')) return;
+    function build(input) {
+        if (!input || !input.parentNode || input.getAttribute('data-ps5-pick')) return;
+        input.setAttribute('data-ps5-pick', '1');
+        input.classList.add('ps5-vh');
+        var row = document.createElement('div');
+        row.id = 'ps5-pick-row';
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'ps5-pick-btn';
+        button.textContent = ps5t('Browse…');
+        var names = document.createElement('span');
+        names.id = 'ps5-pick-names';
+        var last = null;
+        function render() {
+            var files = input.files || [], list = [];
+            for (var i = 0; i < files.length; i++) list.push(files[i].name);
+            var text = list.length ? list.join(', ') : ps5t('No files selected.');
+            if (text !== last) names.textContent = last = text;
+        }
+        button.addEventListener('click', function () { input.click(); });
+        input.addEventListener('change', render);
+        row.appendChild(button);
+        row.appendChild(names);
+        input.parentNode.insertBefore(row, input);
+        render();
+        /* files dropped onto the dialog (and anything else that fills the input) get no change event, so watch the input while it lives */
+        var timer = setInterval(function () {
+            if (!document.body.contains(input)) { clearInterval(timer); return; }
+            render();
+        }, 500);
+    }
+    function scan(root) {
+        if (!root || !root.querySelectorAll) return;
+        var inputs = root.querySelectorAll('.open-torrent input[type="file"]');
+        for (var i = 0; i < inputs.length; i++) build(inputs[i]);
+    }
+    if (window.MutationObserver) {
+        new MutationObserver(function (muts) {
+            for (var i = 0; i < muts.length; i++) {
+                for (var k = 0; k < muts[i].addedNodes.length; k++) {
+                    var n = muts[i].addedNodes[k];
+                    if (n.nodeType === 1) scan(n);
+                }
+            }
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { scan(document); });
+    else scan(document);
+})();
+
 /* The page is open in the PS5 console browser (the User-Agent contains "PlayStation"): it has no file access, so in the add dialog
  * we hide the .torrent file chooser (the link and magnet fields stay). The ps5-console class is put on <html>. */
 (function () {

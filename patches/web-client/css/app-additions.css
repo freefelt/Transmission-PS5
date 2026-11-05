@@ -100,3 +100,9 @@ dialog.dialog-container.popup.ps5-out,#prefs-dialog.ps5-out{animation:ps5dlgout 
 #ps5-file-chip{display:flex;align-items:center;gap:8px;margin:0 0 15px;padding:8px 10px;border:1px solid var(--color-border-default);border-radius:8px;background:var(--color-bg-primary);color:var(--color-fg-primary);font-size:14px}
 .ps5-file-chip-name{flex:1;min-width:0;word-break:break-all}
 .ps5-file-chip-x{flex:none;width:26px;height:26px;padding:0;border-radius:50%;border:1px solid var(--color-border-default);background:var(--color-bg-popup);color:var(--color-fg-primary);cursor:pointer;font-size:16px;line-height:1}
+/* ps5: outside the console the native .torrent file control is replaced by our own button and line with the chosen file names (ps5-compat.js):
+   the browser draws "Browse..." and "No files selected." itself, in its own language, not in the language of the page */
+.ps5-vh{position:absolute!important;width:1px!important;height:1px!important;margin:-1px!important;padding:0!important;border:0!important;opacity:0!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;pointer-events:none!important}
+#ps5-pick-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 15px}
+#ps5-pick-btn{appearance:none;font:inherit;padding:7px 14px;border-radius:8px;border:1px solid var(--color-border-default);background:var(--color-bg-primary);color:var(--color-fg-primary);cursor:pointer}
+#ps5-pick-names{font-size:14px;opacity:.9;min-width:0;word-break:break-all}

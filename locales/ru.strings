@@ -633,6 +633,8 @@
 "Add Torrents" = "Добавить торренты"
 "Add" = "Добавить"
 "Please select torrent files to add:" = "Выберите файлы торрентов:"
+"Browse…" = "Обзор…"
+"No files selected." = "Файлы не выбраны."
 "Or enter a URL:" = "Или введите адрес:"
 "Destination folder:" = "Папка назначения:"
 "Start when added" = "Запустить после добавления"

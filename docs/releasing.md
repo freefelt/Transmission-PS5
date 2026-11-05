@@ -6,7 +6,8 @@ A release is made by GitHub Actions from a tag. The file that users download is 
 2. Write the notes: in `CHANGELOG.md` the heading `## [<version>]` (no date: the date of a release is on its GitHub Releases page) with the
    list of changes under it (this text becomes the notes of the release; `scripts/release-notes.sh <version>` prints it, and the release fails
    if it is empty). **The notes of every version end with a `### Install` line — `[How to install](https://github.com/freefelt/Transmission-PS5#-install)`**
-   (it is part of the GitHub release notes).
+   (it is part of the GitHub release notes). Every bullet is one line (no wrapped lines). While the current version has no tag yet, new changes
+   are added to its section and `VERSION` stays; it is raised only after the version has been tagged.
 3. Set the version in the `VERSION` file (for example `0.1`) and commit both files.
 4. Tag the commit with the version itself (no `v` in front) and push the tag:
    ```sh

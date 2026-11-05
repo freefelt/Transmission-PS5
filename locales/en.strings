@@ -646,6 +646,8 @@
 "Add Torrents" = "Add Torrents"
 "Add" = "Add"
 "Please select torrent files to add:" = "Please select torrent files to add:"
+"Browse…" = "Browse…"
+"No files selected." = "No files selected."
 "Or enter a URL:" = "Or enter a URL:"
 "Destination folder:" = "Destination folder:"
 "Start when added" = "Start when added"

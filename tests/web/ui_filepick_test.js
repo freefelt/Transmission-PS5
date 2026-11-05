@@ -25,11 +25,11 @@ fs.writeFileSync(TXT, "not a torrent");
     return { page, errors };
   };
   const rpc = (page, m, p) => page.evaluate(async (m, p) => { let sid = ""; for (let i = 0; i < 3; i++) { const r = await fetch("../rpc", { method: "POST", headers: { "X-Transmission-Session-Id": sid, "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", method: m, params: p || {}, id: 1 }) }); if (r.status === 409) { sid = r.headers.get("X-Transmission-Session-Id"); continue; } return await r.json(); } }, m, p);
-  // ---- normal browser: the native file chooser, no button of ours
+  // ---- normal browser: no console button; our own button and line stand in for the native file control
   let { page, errors } = await open();
   await page.click("#toolbar-open"); await sleep(700);
-  let f = await page.evaluate(() => ({ btn: !!document.getElementById("ps5-file-btn"), input: !!document.querySelector('.open-torrent input[type="file"]') }));
-  check("a computer: no console button, the native file chooser is there", !f.btn && f.input, JSON.stringify(f));
+  let f = await page.evaluate(() => { const i = document.querySelector('.open-torrent input[type="file"]'); return { btn: !!document.getElementById("ps5-file-btn"), input: i ? (getComputedStyle(i).display === "none" || getComputedStyle(i).opacity === "0" ? "hidden" : "visible") : "missing", pick: !!document.getElementById("ps5-pick-row"), names: (document.getElementById("ps5-pick-names") || {}).textContent || "" }; });
+  check("a computer: no console button; the native file control (its 'Browse...' and 'No files selected.' are drawn by the browser in ITS language) is hidden and our own button and line stand in for it", !f.btn && f.input === "hidden" && f.pick && f.names === "No files selected.", JSON.stringify(f));
   check("no JS errors in a normal browser", errors.length === 0, errors.join(";"));
   await page.close();
 

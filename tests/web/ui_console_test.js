@@ -6,12 +6,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const browser = await puppeteer.launch({ executablePath: require("./chrome"), args: ["--no-sandbox", "--disable-gpu"], headless: "new" });
   const open = async (ua, touch) => { const page = await browser.newPage(); if (touch) await page.evaluateOnNewDocument(() => { Object.defineProperty(navigator, "maxTouchPoints", { get: () => 5, configurable: true }); }); await page.setViewport({ width: 1280, height: 800 }); if (ua) await page.setUserAgent(ua); const dialogs = []; page.on("dialog", async (d) => { dialogs.push(d.message()); await d.accept(); }); const errors = []; page.on("pageerror", (e) => errors.push(e.message)); await page.goto("http://127.0.0.1:9091/transmission/web/", { waitUntil: "networkidle2" }); await sleep(2500); return { page, dialogs, errors }; };
-  const fileState = (page) => page.evaluate(() => { const i = document.querySelector('input[type="file"]'); const lab = i && i.id ? document.querySelector('label[for="' + i.id + '"]') : null; const url = document.querySelector('input[type="url"]'); const next = i && i.nextElementSibling; return { exists: !!i, shown: !!i && getComputedStyle(i).display !== "none" && i.getBoundingClientRect().width > 0, labelShown: !!lab && getComputedStyle(lab).display !== "none", urlShown: !!url && getComputedStyle(url).display !== "none", urlLabel: next ? next.textContent : "", cls: document.documentElement.className, accept: i ? i.getAttribute("accept") : null }; });
+  const fileState = (page) => page.evaluate(() => { const i = document.querySelector('input[type="file"]'); const lab = i && i.id ? document.querySelector('label[for="' + i.id + '"]') : null; const url = document.querySelector('input[type="url"]'); const next = i && i.nextElementSibling; const pick = document.getElementById("ps5-pick-row"), pn = document.getElementById("ps5-pick-names"); return { exists: !!i, shown: !!i && getComputedStyle(i).display !== "none" && getComputedStyle(i).opacity !== "0" && i.getBoundingClientRect().width > 1, labelShown: !!lab && getComputedStyle(lab).display !== "none", urlShown: !!url && getComputedStyle(url).display !== "none", urlLabel: next ? next.textContent : "", cls: document.documentElement.className, accept: i ? i.getAttribute("accept") : null, pick: !!pick && getComputedStyle(pick).display !== "none", pickBtn: !!document.getElementById("ps5-pick-btn"), pickText: pn ? pn.textContent : "" }; });
   // ---- ordinary browser
   let { page, dialogs, errors } = await open();
   await page.click("#toolbar-open"); await sleep(600);
   let f = await fileState(page);
-  check("a normal browser: the .torrent file chooser is shown, no ps5-console class, the .torrent filter is kept", f.exists && f.shown && f.labelShown && !/ps5-console/.test(f.cls) && f.accept === ".torrent,application/x-bittorrent", JSON.stringify(f));
+  check("a normal browser: the native .torrent file control is hidden and replaced by OUR button and line (the browser draws its own in the browser language, not in the page language), no ps5-console class, the .torrent filter is kept", f.exists && !f.shown && f.labelShown && f.pick && f.pickBtn && f.pickText === "No files selected." && !/ps5-console/.test(f.cls) && f.accept === ".torrent,application/x-bittorrent", JSON.stringify(f));
   await page.evaluate(() => { document.querySelector('input[type="url"]').value = "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567"; document.getElementById("add-dialog-folder-input").value = "/nowhere"; const b = [...document.querySelectorAll("#mainwin ~ * button, body > div button, .dialog-buttons button, button")].find((x) => /^\s*Add\s*$/.test(x.textContent)); if (b) b.click(); });
   await sleep(1800);
   const body = await page.evaluate(() => document.body.innerText);
@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ({ page, dialogs, errors } = await open(PS5_UA));
   await page.click("#toolbar-open"); await sleep(600);
   f = await fileState(page);
-  check("the PS5 browser (User-Agent has 'PlayStation'): the .torrent file chooser and its label are HIDDEN, class ps5-console is set", f.exists && !f.shown && !f.labelShown && /ps5-console/.test(f.cls), JSON.stringify(f));
+  check("the PS5 browser (User-Agent has 'PlayStation'): the .torrent file chooser and its label are HIDDEN, class ps5-console is set, and our desktop row is NOT added (the picker button of ps5-files.js stands in for it)", f.exists && !f.shown && !f.labelShown && /ps5-console/.test(f.cls) && !f.pick && !f.pickBtn, JSON.stringify(f));
   check("... the URL field stays and its label no longer says 'Or enter a URL' (it says 'Enter a URL or magnet link:')", f.urlShown && f.urlLabel === "Enter a URL or magnet link:", f.urlLabel);
   check("no JS errors in the PS5 browser case", errors.length === 0, errors.join(";"));
   // ---- iPad Safari in desktop mode: the User-Agent is "Macintosh" (no iPad/iPhone), but the screen is a touch screen
@@ -44,7 +44,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ({ page, dialogs, errors } = await open(IPAD_DESKTOP_UA, true));
   await page.click("#toolbar-open"); await sleep(600);
   f = await fileState(page);
-  check("iPad Safari (Macintosh UA + touch): the file input has NO accept filter (otherwise the iOS Files picker greys out .torrent files)", f.exists && f.shown && f.accept === null, JSON.stringify(f));
+  check("iPad Safari (Macintosh UA + touch): the file input has NO accept filter (otherwise the iOS Files picker greys out .torrent files), and it is replaced by our button like on a computer", f.exists && !f.shown && f.pick && f.accept === null, JSON.stringify(f));
   check("no JS errors in the iPad Safari case", errors.length === 0, errors.join(";"));
   await page.close();
   // ---- adding a .torrent FILE that fails: one Transmission window, no second browser window (alert)
@@ -52,7 +52,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   fs.writeFileSync(tfile, Buffer.concat([Buffer.from("d8:announce27:http://127.0.0.1:1/announce4:infod6:lengthi65536e4:name4:test12:piece lengthi65536e6:pieces20:"), Buffer.alloc(20, 7), Buffer.from("ee")]));
   ({ page, dialogs, errors } = await open());
   await page.click("#toolbar-open"); await sleep(600);
-  const fileInput = await page.$('input[type="file"]'); await fileInput.uploadFile(tfile);
+  const fileInput = await page.$('input[type="file"]'); await fileInput.uploadFile(tfile); await sleep(300);
+  const picked = await page.evaluate(() => (document.getElementById("ps5-pick-names") || {}).textContent || "");
+  check("the chosen file is shown by our line (the native 'No files selected.' would have said nothing useful in the page language)", picked === "ps5_test_upload.torrent", picked);
   await page.evaluate(() => { document.getElementById("add-dialog-folder-input").value = "/nowhere"; const b = [...document.querySelectorAll("button")].find((x) => /^\s*Add\s*$/.test(x.textContent)); if (b) b.click(); });
   await sleep(2200);
   const text2 = await page.evaluate(() => document.body.innerText), shown = (text2.match(/is not in the list of download folders/g) || []).length;
