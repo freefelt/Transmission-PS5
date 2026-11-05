@@ -8,7 +8,6 @@
 [Transmission](https://transmissionbt.com) 4.1.4 as one payload file. Download torrents straight to your console.
 
 [![Release](https://img.shields.io/github/v/release/freefelt/transmission_ps5?label=release)](https://github.com/freefelt/Transmission-PS5/releases/latest)
-[![Build](https://img.shields.io/github/actions/workflow/status/freefelt/transmission_ps5/build.yml?label=build)](https://github.com/freefelt/Transmission-PS5/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-green)](LICENSE)
 [![PS5 firmware](https://img.shields.io/badge/PS5%20firmware-11.20%20tested%20%C2%B7%2010.01%2C%2011.60%2C%2013.60%20reported-brightgreen)](#-good-to-know)
 [![Transmission](https://img.shields.io/badge/Transmission-4.1.4-d33e2c)](https://transmissionbt.com)

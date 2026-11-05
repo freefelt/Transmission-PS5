@@ -8,7 +8,6 @@
 [Transmission](https://transmissionbt.com) 4.1.4 в одном файле-пейлоаде. Качайте торренты прямо на консоль.
 
 [![Релиз](https://img.shields.io/github/v/release/freefelt/transmission_ps5?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7)](https://github.com/freefelt/Transmission-PS5/releases/latest)
-[![Сборка](https://img.shields.io/github/actions/workflow/status/freefelt/transmission_ps5/build.yml?label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0)](https://github.com/freefelt/Transmission-PS5/actions/workflows/build.yml)
 [![Лицензия](https://img.shields.io/badge/%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F-GPL--3.0--or--later-green)](LICENSE)
 [![Прошивка PS5](https://img.shields.io/badge/%D0%BF%D1%80%D0%BE%D1%88%D0%B8%D0%B2%D0%BA%D0%B0%20PS5-11.20%20%D0%BF%D1%80%D0%BE%D0%B2%D0%B5%D1%80%D0%B5%D0%BD%D0%B0%20%C2%B7%2010.01%2C%2011.60%2C%2013.60%20%D1%81%D0%BE%D0%BE%D0%B1%D1%89%D0%B8%D0%BB%D0%B8-brightgreen)](#-полезно-знать)
 [![Transmission](https://img.shields.io/badge/Transmission-4.1.4-d33e2c)](https://transmissionbt.com)
