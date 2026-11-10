@@ -246,5 +246,7 @@ void handle_folders_post(int fd, Request const& req);
 int make_listener_scan(int wanted, int preferred, int& actual, int& error);
 bool probe_listener(int port);
 void http_selftest_in_background(int port);
+std::string updater_status_json();
+std::string updater_action(std::string const& body);
 
 } // namespace ps5tm_ui

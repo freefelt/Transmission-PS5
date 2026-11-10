@@ -61,7 +61,7 @@ def seg_d():   # the Transmission web interface in Chrome (web_stack stand: torr
     kill_all(); loader.close(); clean_mounts(); sh("rm -rf /mnt/ext1 /mnt/usb0")
 def seg_e():   # animation of showing and hiding the sections on the settings page (real Chrome)
     sh("rm -rf /user/app /tmp/ps5_usb1 /tmp/ps5tm_icon_*; mkdir -p /user/app"); sh("for d in /mnt/ext1 /mnt/usb2; do umount $d 2>/dev/null; rm -rf $d; mkdir -p $d; mount -t tmpfs -o size=64m tmpfs $d; done; for i in $(seq 1 35); do mkdir -p /mnt/ext1/Folder_$i; done; mkdir -p /mnt/usb2/Games"); loader = stack_up()
-    node("ui_anim_test.js"); node("ui_popup_anim_test.js"); node("ui_tint_test.js"); node("ui_picker_test.js"); node("ui_sleepquit_test.js"); kill_all(); loader.close(); sh("umount /mnt/ext1 2>/dev/null; umount /mnt/usb2 2>/dev/null; rm -rf /mnt/ext1 /mnt/usb2")
+    node("ui_anim_test.js"); node("ui_popup_anim_test.js"); node("ui_tint_test.js"); node("ui_picker_test.js"); node("ui_sleepquit_test.js"); node("ui_update_test.js"); kill_all(); loader.close(); sh("umount /mnt/ext1 2>/dev/null; umount /mnt/usb2 2>/dev/null; rm -rf /mnt/ext1 /mnt/usb2")
 def seg_f():   # language selection: the page is English by default (as in a real installation), the file comes from the locales folder
     import harness; harness.TEST_LANG = None
     sh("rm -rf /user/app /tmp/ps5_usb1 /tmp/ps5tm_icon_* /data/Transmission/locales; mkdir -p /user/app")

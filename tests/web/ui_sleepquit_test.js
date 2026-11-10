@@ -5,8 +5,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const browser = await puppeteer.launch({ executablePath: require("./chrome"), args: ["--no-sandbox", "--disable-gpu"], headless: "new" });
   const page = await browser.newPage(); await page.setViewport({ width: 900, height: 1100 }); const errors = []; page.on("pageerror", (e) => errors.push(e.message));
-  const posts = [], reqs = []; let quitSent = false; await page.setRequestInterception(true);
-  page.on("request", (r) => { if (r.method() === "POST" && /\/api\/quit$/.test(r.url())) { quitSent = true; posts.push(r.url()); r.respond({ status: 200, contentType: "application/json", body: '{"ok":true}' }); } else if (quitSent && /\/api\/state$/.test(r.url())) { reqs.push(Date.now()); r.abort(); } else r.continue(); });
+  const posts = [], reqs = []; let quitSent = false, stayUp = false; await page.setRequestInterception(true);
+  page.on("request", (r) => { if (r.method() === "POST" && /\/api\/quit$/.test(r.url())) { quitSent = true; posts.push(r.url()); r.respond({ status: 200, contentType: "application/json", body: '{"ok":true}' }); } else if (quitSent && !stayUp && /\/api\/state$/.test(r.url())) { reqs.push(Date.now()); r.abort(); } else r.continue(); });
   await page.goto("http://127.0.0.1:9092/", { waitUntil: "networkidle2" }); await sleep(2600);
   const geo = await page.evaluate(() => { const q = document.getElementById("quitBtn").getBoundingClientRect(), b = document.getElementById("bell").getBoundingClientRect(); return { qr: Math.round(window.innerWidth - q.right), ql: Math.round(q.left), br: Math.round(b.right), bl: Math.round(b.left), qt: Math.round(q.top), bt: Math.round(b.top), qh: Math.round(q.height), bh: Math.round(b.height), w: window.innerWidth, qpos: getComputedStyle(document.getElementById("quitBtn")).position, title: document.getElementById("quitBtn").title }; });
   check("EXIT BUTTON: a round button like the bell, fixed in the TOP-LEFT corner of the page (the bell stays in the top-right corner), same height and top", geo.qpos === "fixed" && geo.ql <= 14 && geo.w - geo.br <= 14 && geo.qt === geo.bt && Math.abs(geo.qh - geo.bh) <= 1 && /Выйти/.test(geo.title), JSON.stringify(geo));
@@ -23,9 +23,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const done = await page.evaluate(() => ({ disp: getComputedStyle(document.getElementById("quitDone")).display, text: document.getElementById("quitDoneText").textContent, all: document.getElementById("quitDone").textContent, spin: getComputedStyle(document.getElementById("quitSpin")).display }));
   check("'Выйти' sends POST /api/quit once, shows 'Transmission закрывается…' with a spinner, and keeps the start-again line", posts.length === 1 && done.disp === "flex" && /закрывается/.test(done.all) && /несколько секунд\.$/.test(done.text) && done.spin !== "none" && /Transmission\.elf/.test(done.all), JSON.stringify({ posts: posts.length, d: done.disp, spin: done.spin }));
   await sleep(2600);
-  const closed = await page.evaluate(() => ({ title: document.getElementById("quitDoneTitle").textContent, textDisp: getComputedStyle(document.getElementById("quitDoneText")).display, disp: getComputedStyle(document.getElementById("quitDone")).display, buttons: document.getElementById("quitDone").querySelectorAll("button").length, text: document.getElementById("quitDone").textContent }));
-  check("after the manager stops answering the title says that Transmission has closed, with no extra text and no Close button (one /api/state probe)", reqs.length === 1 && closed.disp === "flex" && /закрыт/.test(closed.title) && closed.textDisp === "none" && closed.buttons === 0 && /Transmission\.elf/.test(closed.text), JSON.stringify({ reqs: reqs.length, title: closed.title, buttons: closed.buttons }));
-  quitSent = false;
+  const closed = await page.evaluate(() => ({ title: document.getElementById("quitDoneTitle").textContent, textDisp: getComputedStyle(document.getElementById("quitDoneText")).display, disp: getComputedStyle(document.getElementById("quitDone")).display, buttons: [...document.getElementById("quitDone").querySelectorAll("button")].filter((b) => getComputedStyle(b).display !== "none").length, text: document.getElementById("quitDone").textContent }));
+  check("after the manager stops answering the title says that Transmission has closed, with no extra text and no visible button (one /api/state probe)", reqs.length === 1 && closed.disp === "flex" && /закрыт/.test(closed.title) && closed.textDisp === "none" && closed.buttons === 0 && /Transmission\.elf/.test(closed.text), JSON.stringify({ reqs: reqs.length, title: closed.title, buttons: closed.buttons }));
+  // the manager stays up (the daemon did not stop): after the deadline the dialog says so and has a Close button
+  quitSent = false; stayUp = true;
+  await page.goto("http://127.0.0.1:9092/", { waitUntil: "networkidle2" }); await sleep(2600);
+  await page.click("#quitBtn"); await sleep(400); await page.click("#quitConfirm"); await sleep(600);
+  await page.evaluate(() => { quitDeadline = Date.now() + 1200; }); await sleep(3200);
+  const still = await page.evaluate(() => ({ title: document.getElementById("quitDoneTitle").textContent, disp: getComputedStyle(document.getElementById("quitDone")).display, close: getComputedStyle(document.getElementById("quitClose")).display, closeText: document.getElementById("quitClose").textContent, spin: getComputedStyle(document.getElementById("quitSpin")).display }));
+  check("when the manager keeps answering, after the deadline the dialog says 'Transmission всё ещё работает' without the spinner and has a Close button", /всё ещё работает/.test(still.title) && still.disp === "flex" && still.close !== "none" && still.closeText === "Закрыть" && still.spin === "none", JSON.stringify(still));
+  await page.click("#quitClose"); await sleep(500);
+  check("Close closes that dialog, the page is usable again", (await page.evaluate(() => getComputedStyle(document.getElementById("quitDone")).display)) === "none");
+  quitSent = false; stayUp = false;
   // the "When all downloads finish" section: choosing an action and the power-off warning
   await page.goto("http://127.0.0.1:9092/", { waitUntil: "networkidle2" }); await sleep(2600);
   const sec = await page.evaluate(() => { const h = [...document.querySelectorAll("h2")].map((x) => x.firstChild.textContent); return { h, label: document.querySelector("#asRow label").firstChild.textContent }; });

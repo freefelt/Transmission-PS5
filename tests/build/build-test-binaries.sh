@@ -66,5 +66,5 @@ clang-18 -x assembler-with-cpp -DBLOB_PATH="\"$OUT/transmission_d_host\"" -c "$S
 clang-18 -O2 -D_GNU_SOURCE -DPS5TM_HOST_TEST -Wall -Wextra -c "$SRCDIR/icon-helper/ps5tm_icon_helper.c" -o icon_helper.o
 clang-18 -o transmission_i_host icon_helper.o -lpthread
 clang-18 -x assembler-with-cpp -DICON_BLOB_PATH="\"$OUT/transmission_i_host\"" -c "$SRCDIR/asm/icon_blob.S" -o icon_blob.o
-clang++-18 -stdlib=libc++ -pthread -o Transmission_mgr_host "$OUT"/obj-manager/*.o "${UI_OBJS[@]}" hoststub.o netwrap.o daemon_blob.o icon_blob.o -Wl,--wrap=pthread_create -Wl,--wrap=ps5tm_current_ip 2>&1 | tail -5
+clang++-18 -stdlib=libc++ -pthread -o Transmission_mgr_host "$OUT"/obj-manager/*.o "${UI_OBJS[@]}" hoststub.o netwrap.o daemon_blob.o icon_blob.o -Wl,--wrap=pthread_create -Wl,--wrap=ps5tm_current_ip -lcurl -lssl -lcrypto -lz 2>&1 | tail -5
 ls -l transmission_d_host Transmission_mgr_host | awk '{print $5, $9}'

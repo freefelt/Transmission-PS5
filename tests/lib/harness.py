@@ -106,6 +106,7 @@ SYS_HELPER = False   # True: the manager starts the system service helper itself
 def start_manager(tag="mgr"):
     env = dict(os.environ)
     if not SYS_HELPER: env["PS5TM_NO_SYS_HELPER"] = "1"
+    if "PS5TM_UPDATER_API" not in env: env["PS5TM_NO_UPDATE"] = "1"   # the release check must not reach GitHub (test_update.py points it at a local stand)
     env["PS5TM_TEST_POWEROFF"] = "1"   # powering the console off in the checks: only a marker /tmp/ps5tm_test_poweroff
     if TEST_LANG: env["PS5TM_TEST_LANG"] = TEST_LANG
     if TEST_MSG: env["PS5TM_TEST_MSG"] = TEST_MSG   # "mixed": messages as before the translation (me_ English, mr_ Russian) so the old text checks do not change   # powering the console off in the checks: only a marker /tmp/ps5tm_test_poweroff

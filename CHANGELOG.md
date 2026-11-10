@@ -9,6 +9,7 @@ Every bullet is ONE line (no wrapped lines). `VERSION` is raised only after the 
 
 ### Changes
 - Improved the closing flow.
+- Added updating from the settings page.
 - Add Torrents: the "Browse…" button is now localized.
 - A .torrent file can now be chosen on the console.
 - .torrent files can be chosen on iPad Safari again.

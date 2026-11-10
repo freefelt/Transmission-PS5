@@ -184,6 +184,60 @@ function topRender(s){var upd=updTag&&verNewer(updTag,s.version)?updTag:'',key=s
  t.appendChild(document.createTextNode('Version '+s.version));
  if(upd){t.appendChild(document.createTextNode(' ('));var a=document.createElement('a');a.href=UPD_PAGE;a.target='_blank';a.rel='noopener';a.textContent='update available'+' '+upd;t.appendChild(a);t.appendChild(document.createTextNode(')'))}
  t.appendChild(document.createTextNode(' · Transmission '+s.tr_version+' · console address '+s.ip))}
+/* Release update: the manager checks GitHub (at most once a day), finds the file PLDMGR launched and downloads the new ELF.
+   The page only shows the state and asks the manager to start, retry or restart. An old error is not shown on a fresh page:
+   the failure dialog opens only after the user pressed a button of this dialog (updUser). */
+var updTimer=null,updOpen=false,updUser=false;
+function updButtons(update,restart,retry){$('updGo').style.display=update?'inline-block':'none';$('updRestart').style.display=restart?'inline-block':'none';$('updRetry').style.display=retry?'inline-block':'none'}
+function updShow(j){
+ if(!updOpen){updOpen=true;popOpen($('updModal'),'flex')}
+ $('updVer').textContent=j.latest||'';
+ $('updNotes').style.display=j.changelog?'inline':'none';if(j.changelog)$('updNotes').href=j.changelog;
+ $('updProgressRow').style.display='none';$('updStatus').textContent='';$('updTitle').textContent='Update available';
+ updButtons(true,false,false);
+}
+function updPoll(){
+ api('/api/update',null,function(c,j){
+  if(c!==200||!j){updTimer=setTimeout(updPoll,5000);return}
+  if(j.state==='checking'){updTimer=setTimeout(updPoll,1500);return}
+  if(j.state==='available'){updShow(j);return}
+  if(j.state==='downloading'){
+   if(!updOpen)updShow(j);$('updTitle').textContent='Update available';
+   $('updProgressRow').style.display='block';$('updBar').style.width=(j.progress||0)+'%';
+   $('updStatus').textContent=j.progress>=100?'Verifying the update…':'Downloading the update…';
+   updButtons(false,false,false);updTimer=setTimeout(updPoll,500);return
+  }
+  if(j.state==='ready'){
+   if(!updOpen)updShow(j);$('updTitle').textContent='Update ready';$('updProgressRow').style.display='none';
+   $('updStatus').textContent=j.restart_error||'The update is ready. Restart to apply it.';
+   $('updRestart').disabled=!!j.restarting;updButtons(false,true,false);return
+  }
+  if(j.state==='error'){
+   if(!updUser)return;
+   if(!updOpen)updShow(j);$('updTitle').textContent='Update failed';$('updProgressRow').style.display='none';
+   $('updStatus').textContent=j.error||'';updButtons(false,false,true);return
+  }
+  if(updOpen){popClose($('updModal'));updOpen=false} /* idle: a repeated check found nothing to offer */
+ });
+}
+$('updLater').onclick=function(){popClose($('updModal'));updOpen=false};
+$('updGo').onclick=function(){updUser=true;
+ api('/api/update',{action:'download'},function(c,j){if(c!==200||!j||!j.ok){$('updStatus').textContent=(j&&j.message)||'Could not start the update';return}
+  $('updGo').style.display='none';$('updProgressRow').style.display='block';$('updBar').style.width='0%';$('updStatus').textContent='Downloading the update…';updTimer=setTimeout(updPoll,300)})};
+$('updRetry').onclick=function(){updUser=true;
+ api('/api/update',{action:'check'},function(c,j){if(c!==200||!j||!j.ok){$('updStatus').textContent=(j&&j.message)||'Could not start the update';return}
+  $('updRetry').style.display='none';$('updStatus').textContent='';updTimer=setTimeout(updPoll,500)})};
+$('updRestart').onclick=function(){var btn=this;btn.disabled=true;updUser=true; /* one click: the button stays off until the restart is refused or has failed */
+ api('/api/update',{action:'restart'},function(c,j){if(c!==200||!j||!j.ok){btn.disabled=false;$('updStatus').textContent=(j&&j.message)||'Could not restart';return}
+  var before=state&&state.built,end=Date.now()+90000;$('updStatus').textContent='Restarting Transmission…';
+  (function wait(){
+   if(Date.now()>end){btn.disabled=false;$('updStatus').textContent='The update timed out. Reload the page and try again.';return}
+   api('/api/update',null,function(c1,j1){
+    if(c1===200&&j1&&j1.restart_error){btn.disabled=false;$('updStatus').textContent=j1.restart_error;return} /* the real reason, not a timeout */
+    api('/api/state',null,function(c2,s2){if(c2===200&&s2&&s2.built&&s2.built!==before){location.reload();return}setTimeout(wait,1000)},3000)
+   },3000)
+  })()})};
+setTimeout(updPoll,2500);
 updCheck(); // after the definitions above: it reads UPD_URL
 function render(s){state=s;ssRender(s.stats);pwRender(s.stats);$('fdCard').classList.toggle('fd-mono',s.config.web_icons==='mono');$('fdCard').classList.toggle('fd-open-on',s.config.web_openfolder==='bfpilot'||s.config.web_openfolder==='webfm');if(!formBuilt)buildForm(s.config);dmRender(s.daemon);notifState(s.notif_latest); var tr='http://'+location.hostname+':'+s.rpc_port+'/';
  topRender(s);$('bdState').textContent='SDK '+s.sdk+' · built '+s.built;
@@ -216,20 +270,21 @@ function sleepRender(s){var a=s.autosleep,sl=s.sleep,busy=sl.phase!=='idle';
  $('sleepCancel').style.display=sl.phase==='countdown'?'inline-block':'none';
 }
 var quitting=false,quitTimer=null,quitDeadline=0;
-function quitShow(title,text){$('quitSpin').style.display='none';$('quitDoneTitle').textContent=title;
- $('quitDoneText').style.display=text?'block':'none';$('quitDoneText').textContent=text}
+function quitShow(title,text,closable){$('quitSpin').style.display='none';$('quitDoneTitle').textContent=title;
+ $('quitDoneText').style.display=text?'block':'none';$('quitDoneText').textContent=text;$('quitClose').style.display=closable?'inline-block':'none'}
 function quitPoll(){
  if(!quitting)return;
- if(Date.now()>=quitDeadline){quitting=false;quitShow('Transmission is still running','It did not close within 1 minute. Check the log or the console notifications; the page can be closed.');refresh();return}
+ if(Date.now()>=quitDeadline){quitting=false;quitShow('Transmission is still running','It did not close within 1 minute. Check the log or the console notifications; the page can be closed.',true);refresh();return}
  api('/api/state',null,function(c){
   if(!quitting)return;
   if(c===0){quitShow('Transmission has closed','');return}
   quitTimer=setTimeout(quitPoll,1000)},3000)}
 $('quitBtn').onclick=function(ev){ev.stopPropagation();popOpen($('quitModal'),'flex');$('quitCancel').focus()};
 $('quitCancel').onclick=function(){popClose($('quitModal'))};
+$('quitClose').onclick=function(){popClose($('quitDone'))};
 $('quitConfirm').onclick=function(){popClose($('quitModal'));
  api('/api/quit',{},function(c,j){if(c===200&&j&&j.ok){
-   quitting=true;$('quitSpin').style.display='inline-block';
+   quitting=true;$('quitSpin').style.display='inline-block';$('quitClose').style.display='none';
    $('quitDoneTitle').textContent='Transmission is closing';
    $('quitDoneText').style.display='block';
    $('quitDoneText').textContent='Downloads are being paused and the daemon is shutting down. This takes a few seconds.';

@@ -39,6 +39,9 @@ button.ok{background:#2e9e5b}
 .modal-card{max-width:560px;background:#1b212b;border:2px solid #c0392b;border-radius:14px;padding:18px 22px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 .modal-card h3{margin:0 0 10px;color:#ff6b6b;font-size:19px}.modal-card p{margin:10px 0}
 .quit-head{display:flex;align-items:center;gap:10px;margin:0 0 10px}.quit-head h3{margin:0}
+#updProgressRow{height:10px;background:#0f1319;border:1px solid #3a4658;border-radius:5px;overflow:hidden;margin:12px 0}
+#updBar{height:100%;width:0;background:#2f6fed;transition:width .2s linear}
+
 .spin{display:inline-block;width:18px;height:18px;border:3px solid #3a4658;border-top-color:#ff6b6b;border-radius:50%;animation:ps5spin .8s linear infinite;flex:none}
 @keyframes ps5spin{to{transform:rotate(360deg)}}
 .modal-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px}

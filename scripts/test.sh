@@ -14,7 +14,7 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 SUITES="$ROOT/tests/suites"
 declare -A AREA=(
-  [core]="core/test_daemon_lifecycle.py core/test_power_state.py core/test_dns_does_not_block.py core/test_system_messages.py core/test_hung_daemon_restart.py core/test_no_restart_without_network.py core/test_config_load.py core/test_settings_port.py core/test_disk_space_thresholds.py core/test_restart_delay_migration.py core/test_network_change_restart.py"
+  [core]="core/test_daemon_lifecycle.py core/test_power_state.py core/test_dns_does_not_block.py core/test_system_messages.py core/test_hung_daemon_restart.py core/test_no_restart_without_network.py core/test_config_load.py core/test_settings_port.py core/test_disk_space_thresholds.py core/test_restart_delay_migration.py core/test_network_change_restart.py core/test_update.py"
   [sleep]="sleep/test_sleep_now.py sleep/test_autosleep.py sleep/test_autosleep_timeout_setting.py sleep/test_sleep_actions.py"
   [webconfig]="webconfig/test_disk_panel_modes.py webconfig/test_torrent_files_rpc.py"
   [folders]="folders/test_download_folders_guard.py folders/test_start_verify_disk_check.py folders/test_forced_settings.py folders/test_default_folder_placeholder.py folders/test_sequential_download_on_usb.py folders/test_state_saved_on_add.py folders/test_folders_rpc.py folders/test_in_folder_field.py folders/test_path_aliases_and_unmount.py folders/test_folder_browser.py folders/test_disk_kind_and_unmount.py"

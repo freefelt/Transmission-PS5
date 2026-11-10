@@ -19,6 +19,20 @@
 <div class="quit-head"><span id="quitSpin" class="spin" aria-hidden="true"></span><h3 id="quitDoneTitle">Transmission is closing</h3></div>
 <p id="quitDoneText">Downloads are being paused and the daemon is shutting down. This takes a few seconds.</p>
 <p>To start it again, send Transmission.elf to the console.</p>
+<div class="modal-btns"><button id="quitClose" class="alt" style="display:none">Close</button></div>
+</div></div>
+<div id="updModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
+<h3 id="updTitle">Update available</h3>
+<p><span id="updText">A new version is available:</span> <b id="updVer"></b></p>
+<p><a id="updNotes" href="#" target="_blank" rel="noopener">What’s new</a></p>
+<div id="updProgressRow" style="display:none"><div id="updBar"></div></div>
+<p id="updStatus" class="help"></p>
+<div class="modal-btns">
+<button id="updLater" class="alt">Later</button>
+<button id="updRetry" style="display:none">Try again</button>
+<button id="updGo">Update</button>
+<button id="updRestart" style="display:none">Restart</button>
+</div>
 </div></div>
 <div id="actModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
 <h3 id="actTitle"></h3>

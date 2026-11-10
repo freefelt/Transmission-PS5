@@ -39,6 +39,10 @@ static void handle_connection(int fd, std::string const& client)
     {
         send_json(fd, 200, "OK", state_json());
     }
+    else if (req.method == "GET" && req.path == "/api/update")
+    {
+        send_json(fd, 200, "OK", updater_status_json());
+    }
     else if (req.method == "GET" && req.path == "/api/diag/threads")
     {
         send_json(fd, 200, "OK", "{\"text\":" + jstr(ps5tm_thread_snapshot_text()) + "}");
@@ -143,7 +147,7 @@ static void handle_connection(int fd, std::string const& client)
             std::string{ "# the Transmission log itself (transmission.log, the last lines)\n" } +
                 read_file_tail("/data/Transmission/logs/transmission.log", 12000));
     }
-    else if (req.method == "POST" && (req.path == "/api/config" || req.path == "/api/quit" || req.path == "/api/sleep" || req.path == "/api/autosleep" || req.path == "/api/notifications" || req.path == "/api/folders" || req.path == "/api/fs" || req.path == "/api/daemon" || req.path == "/api/icon"))
+    else if (req.method == "POST" && (req.path == "/api/config" || req.path == "/api/quit" || req.path == "/api/sleep" || req.path == "/api/autosleep" || req.path == "/api/notifications" || req.path == "/api/folders" || req.path == "/api/fs" || req.path == "/api/daemon" || req.path == "/api/icon" || req.path == "/api/update"))
     {
         if (!is_json(req))
         {
@@ -160,6 +164,10 @@ static void handle_connection(int fd, std::string const& client)
         else if (req.path == "/api/icon")
         {
             handle_icon(fd, req);
+        }
+        else if (req.path == "/api/update")
+        {
+            send_json(fd, 200, "OK", updater_action(req.body));
         }
         else if (req.path == "/api/quit")
         {

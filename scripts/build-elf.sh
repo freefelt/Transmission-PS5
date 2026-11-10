@@ -297,7 +297,7 @@ perl -e '
 UI_OBJS=()
 for f in "$SRCDIR"/manager/*.cc "$SRCDIR"/common/fs_list.cc; do
     o="$GEN/ui_$(basename "$f" .cc).o"
-    "$CXX" -O2 -fPIC -std=gnu++17 -Wall -Wextra -DPS5TM_TR_VERSION="\"$TR_VER\"" -I"$SRCDIR" -I"$GEN" -c "$f" -o "$o"
+    "$CXX" -O2 -fPIC -std=gnu++17 -Wall -Wextra -DPS5TM_TR_VERSION="\"$TR_VER\"" -I"$SRCDIR" -I"$GEN" -I"$P/include" -c "$f" -o "$o"
     UI_OBJS+=("$o")
 done
 
@@ -341,7 +341,7 @@ say "Embedding the daemon and linking build/Transmission.elf (manager)"
 "$CC" -x assembler-with-cpp -DBLOB_PATH="\"$PARTS/transmission_d.elf\"" -c "$SRCDIR/asm/daemon_blob.S" -o "$GEN/daemon_blob.o"
 "$CC" -x assembler-with-cpp -DICON_BLOB_PATH="\"$PARTS/transmission_i.elf\"" -c "$SRCDIR/asm/icon_blob.S" -o "$GEN/icon_blob.o"
 "$CXX" -O2 -o "$ELF" "$GEN"/obj-manager/*.o "${UI_OBJS[@]}" "$GEN/daemon_blob.o" "$GEN/icon_blob.o" \
-    -Wl,--wrap=pthread_create >"$LOGS/link-Transmission.log" 2>&1 \
+    -Wl,--wrap=pthread_create -L"$P/lib" "$P/lib/libcurl.a" "$P/lib/libssl.a" "$P/lib/libcrypto.a" -lz >"$LOGS/link-Transmission.log" 2>&1 \
     || { tail -30 "$LOGS/link-Transmission.log"; die "linking Transmission.elf failed (log: $LOGS/link-Transmission.log)"; }
 "$STRIP" --strip-debug "$ELF"
 [ "$(wc -c <"$ELF")" -gt "$(wc -c <"$PARTS/transmission_d.elf")" ] || die "the daemon was not embedded into Transmission.elf"
