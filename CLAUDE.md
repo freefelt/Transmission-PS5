@@ -21,7 +21,7 @@ The maintainer (Alexander) tests on a real console (firmware 11.20) and works in
 
 1. **Discuss before you change.** For anything bigger than a small fix, say what you intend to do and wait for agreement. Answer a
    question first; if the answer implies a change, propose it instead of doing it.
-2. **After a change: build and check imports** (`./build.sh`; a few minutes, much less with a warm `.deps/`). The PS5 loader crashes on an import it
+2. **After a code change: build and check imports** (`./build.sh`; a few minutes, much less with a warm `.deps/`). A Markdown-only change (`*.md`, `CHANGELOG.md`) needs no build or tests; build when the code or the generated page changes, or when the maintainer asks. The PS5 loader crashes on an import it
    does not know; `scripts/check-imports.sh` (run by `build.sh`) must print "no extra imports" for `Transmission-*.elf` and
    `transmission_d.elf`. Never use a libc or SDK function that you have not run through the check (`isalnum` was caught once and replaced by explicit
    ranges). The check is the authority: if it passes, the loader will accept the file; if it reports an import, remove the call.
@@ -469,4 +469,7 @@ fixes on a real exFAT disk beyond the maintainer's reports; other firmware versi
 - Python host tests stay (they drive the real daemon); the build and developer tools are shell and Node.
 - The version scheme was `0.0.N` until the first public release `0.1` (2026-10-30); `VERSION` now holds `0.N` (the second number only: `0.2`, `0.3`, even `0.42`; no third number), raise it for the next change that goes to a console or a release **only when the current version is already tagged** (until then new changes go into its `CHANGELOG.md` section), and write a `CHANGELOG.md` section for each release.
 - **Every `CHANGELOG.md` version section ends with a `### Install` line — `[How to install](https://github.com/freefelt/Transmission-PS5#-install)`** (it becomes the GitHub release notes; see `docs/releasing.md`). **Every bullet of a section is ONE line** (no wrapped lines). Do not drop it or change the link text when writing a release. The version heading has no date (`## [<version>]`): a release only needs `VERSION` to be raised and the section to be written; the release date is shown on the GitHub Releases page.
+- **`CHANGELOG.md` is the user-facing release note, not a technical log.** A bullet is one short sentence with the essence: what changed for the user, not how it works. Write "Improved the closing flow.", not a paragraph about polling, states, buttons or files. No implementation details, file or module names, test descriptions or a retelling of commits.
+- **One user-visible change = one bullet.** Merge related edits; do not list every file, commit or fix. Keep a version section short; leave out internal changes with no user-visible effect.
+- **Do not rebuild or run tests for a `CHANGELOG.md`-only edit.** The existing build/test rules apply to code and generated pages.
 - The license is GPL-3.0-or-later for the whole project.

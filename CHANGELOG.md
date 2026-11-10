@@ -8,11 +8,10 @@ Every bullet is ONE line (no wrapped lines). `VERSION` is raised only after the 
 ## [0.4]
 
 ### Changes
-- The "Add Torrents" dialog on a computer or an iPad shows our own "Browse…" button and our own line with the chosen file names instead of the browser's file control, so they follow the language of the interface (the browser drew its button and "No files selected." in its own language: on a Russian page in an English browser they stayed English). The console is unchanged.
-- The Add Torrents dialog works on the console: a "Choose a .torrent file" button opens our own picker with the disks of the console (Data, M.2 SSD, USB drives), and the chosen file is added by its path (the daemon reads the .torrent itself). The console browser has no working native file chooser.
-- The download folder picker of the settings page and the new .torrent file picker are one shared module (`ps5-picker.js` / `ps5-picker.css`); the manager uses it with `/api/fs`, the Transmission web interface with the new read-only daemon method `ps5_files`. The shared listing and path rules live in `src/common/fs_list.cc`.
-- A .torrent file can be chosen on any connected disk (and in /data); the download folder list is not involved in reading. The destination folder is still chosen from the download folders, as before.
-- The "Add Torrents" dialog works on iPad Safari again: the `.torrent` file filter (`accept`) is no longer set on touch devices, where the iOS Files picker showed `.torrent` files greyed out and they could not be selected. On a computer the `.torrent` filter is kept.
+- Improved the closing flow.
+- Add Torrents: the "Browse…" button is now localized.
+- A .torrent file can now be chosen on the console.
+- .torrent files can be chosen on iPad Safari again.
 
 ### Install
 [How to install](https://github.com/freefelt/Transmission-PS5#-install)

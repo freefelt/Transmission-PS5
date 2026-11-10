@@ -49,7 +49,8 @@ var SLEEP_SCHEMA=[
 ];
 var state=null,formBuilt=false,orig={};
 function $(id){return document.getElementById(id)}
-function api(path,body,cb){var x=new XMLHttpRequest();x.open(body?'POST':'GET',path);if(body)x.setRequestHeader('Content-Type','application/json');
+function api(path,body,cb,timeout){var x=new XMLHttpRequest();x.open(body?'POST':'GET',path);if(body)x.setRequestHeader('Content-Type','application/json');
+ if(timeout){x.timeout=timeout;x.ontimeout=function(){cb(-1,null)}}
  x.onload=function(){var j=null;try{j=JSON.parse(x.responseText)}catch(e){}cb(x.status,j)};x.onerror=function(){cb(0,null)};x.send(body?JSON.stringify(body):null)}
 function buildFields(f,schema,c,pre){f.innerHTML='';
  schema.forEach(function(s){
@@ -214,11 +215,26 @@ function sleepRender(s){var a=s.autosleep,sl=s.sleep,busy=sl.phase!=='idle';
   $('sleepLine').textContent=sl.phase==='countdown'?((po?'Power off in ':'Sleep in ')+sl.remaining+' s.'):(sl.phase==='stopping'?(po?'Stopping Transmission before power off…':'Stopping Transmission before sleep…'):(po?'Turning the console off…':'Going to sleep…'));
  $('sleepCancel').style.display=sl.phase==='countdown'?'inline-block':'none';
 }
-var quitting=false;
+var quitting=false,quitTimer=null,quitDeadline=0;
+function quitShow(title,text){$('quitSpin').style.display='none';$('quitDoneTitle').textContent=title;
+ $('quitDoneText').style.display=text?'block':'none';$('quitDoneText').textContent=text}
+function quitPoll(){
+ if(!quitting)return;
+ if(Date.now()>=quitDeadline){quitting=false;quitShow('Transmission is still running','It did not close within 1 minute. Check the log or the console notifications; the page can be closed.');refresh();return}
+ api('/api/state',null,function(c){
+  if(!quitting)return;
+  if(c===0){quitShow('Transmission has closed','');return}
+  quitTimer=setTimeout(quitPoll,1000)},3000)}
 $('quitBtn').onclick=function(ev){ev.stopPropagation();popOpen($('quitModal'),'flex');$('quitCancel').focus()};
 $('quitCancel').onclick=function(){popClose($('quitModal'))};
 $('quitConfirm').onclick=function(){popClose($('quitModal'));
- api('/api/quit',{},function(c,j){if(c===200&&j&&j.ok){quitting=true;popOpen($('quitDone'),'flex')}else{cfmInfo('Could not exit',(j&&j.message)||'Could not start the exit')}})};
+ api('/api/quit',{},function(c,j){if(c===200&&j&&j.ok){
+   quitting=true;$('quitSpin').style.display='inline-block';
+   $('quitDoneTitle').textContent='Transmission is closing';
+   $('quitDoneText').style.display='block';
+   $('quitDoneText').textContent='Downloads are being paused and the daemon is shutting down. This takes a few seconds.';
+   popOpen($('quitDone'),'flex');quitDeadline=Date.now()+60000;quitTimer=setTimeout(quitPoll,1200)
+  }else{cfmInfo('Could not exit',(j&&j.message)||'Could not start the exit')}})};
 $('asArm').onchange=function(){slideShow($('asBox'),this.checked,'block')};
 /* Sleep and power-off warnings are shown in a dialog when “Activate” is pressed (they used to sit on the page) */
 var ACT_SLEEP='These warnings are not a formality. Putting the console into rest mode from a payload was not tested on all firmware versions and uses an undocumented method.';
