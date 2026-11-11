@@ -8,9 +8,8 @@ namespace ps5tm_core
 {
 
 
-// ---------------------------------------------------------------- pausing downloads during a game and auto-starting the trial system service helper
-// The game state is provided by the transmission_s.elf helper (port 1234, status.json): none, on_screen, minimised. The manager starts it on its own
-// startup (once per start; a hung helper is not restarted by itself, so processes do not multiply) and pauses active torrents
+// ---------------------------------------------------------------- pausing downloads during a game
+// The game state comes from the system-service thread of the manager (syssvc.cc): none, on_screen, minimised. The manager pauses active torrents
 // according to the game_pause setting. What was paused is written to GamePausedFile (lines "R<hash>"): after the pause is lifted only
 // those are resumed; torrents stopped by the user stay stopped.
 
@@ -235,9 +234,9 @@ void game_pause_tick(std::time_t now)
     }
 }
 
-// "Do not let the console fall asleep by itself": only while auto-sleep/auto power off is armed (the "Activate" button), we ask the helper every 10 minutes
+// "Do not let the console fall asleep by itself": only while auto-sleep/auto power off is armed (the "Activate" button), we ask the system-service thread every 10 minutes
 // to call PowerTick and reset the auto power off timer (the minimum sleep timer in the console settings is 20 minutes). Outside arming we leave the system alone.
-// We check the state every 5 s via the helper's status.json: after it restarts (for example, after sleep) the request repeats by itself.
+// We check the state every 5 s: if the service restarts (for example, after sleep) the request repeats by itself.
 static bool g_ka_state = false;
 
 void keep_awake_tick(std::time_t)

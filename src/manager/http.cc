@@ -132,10 +132,10 @@ bool read_request(int fd, Request& req)
     return true;
 }
 
-void send_response(int fd, int code, char const* status, char const* content_type, std::string const& body)
+void send_response(int fd, int code, char const* status, char const* content_type, std::string const& body, char const* extra_headers)
 {
     std::string head = "HTTP/1.0 " + std::to_string(code) + " " + status + "\r\nContent-Type: " + content_type +
-        "\r\nContent-Length: " + std::to_string(body.size()) + "\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
+        "\r\nContent-Length: " + std::to_string(body.size()) + "\r\nCache-Control: no-store\r\n" + extra_headers + "Connection: close\r\n\r\n";
     std::string const all = head + body;
     std::size_t done = 0;
     while (done < all.size())

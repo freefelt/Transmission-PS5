@@ -71,7 +71,6 @@ function buildFields(f,schema,c,pre){f.innerHTML='';
   r.appendChild(l);r.appendChild(i);f.appendChild(r);orig[s.k]=c[s.k]})}
 helpBtn($('asHead'),'When all downloads finish',['If all downloads are paused or removed, the action deactivates itself and the console does nothing.','The activation is not saved: after sleep, power off or a manager restart it is off. If the console woke up (including when it went to sleep by itself on its own timer), the activation is cleared as well: turn it on again.']);
 helpBtn($('iconHead'),'Icon on the “Media” tab',['The app registers a separate short process, transmission_i.elf, with the system (the Payload Manager method): if it hangs, the manager and Transmission are not affected, and there will be no automatic retries.','Installation takes a few seconds.']);
-helpBtn($('dgInfo'),'Diagnostics',['“Check Transmission” shows whether it accepts a local connection and responds.','“Threads”: where the process threads stand (the wait column shows what a thread is waiting for).','“Manager log”: the memory of the running manager. “Manager log file”: shim.log from the disk; it also has the starts of other instances of the manager, for example a new one that could not replace the old one.','“Daemon log”, “Transmission log”: the last lines of the logs.','“Drives”: which of /mnt/ext*, /mnt/usb* are connected (press with the drive and without it).','“Mount points”: all mount points the manager sees (USB and M.2 first).']);
 function diskClamp(){var w=$('f_low_disk_warn_gb'),c=$('f_low_disk_critical_gb');if(!w||!c)return;
  var wv=parseInt(w.value,10),cv=parseInt(c.value,10);if(isNaN(wv))return;
  var top=Math.max(0,wv-1);c.min=0;c.max=top;w.min=1;
@@ -147,7 +146,7 @@ var DM={running:'Running',stopped:'Stopped',starting:'starting…',stopping:'sto
 function fmtMem(k){var m=k/1024;return m>=1024?(m/1024).toFixed(2)+' GiB':m.toFixed(1)+' MiB'}
 function dmRender(d){var st=DM[d.state]||d.state;if(d.state==='running'&&d.pid)st+=' (pid: '+d.pid+(d.mem_kib>0?', memory: '+fmtMem(d.mem_kib):'')+')';if((d.state==='starting'||d.state==='restarting'||d.state==='stopping')&&d.since_age>=0)st+=' '+d.since_age+' s';if(d.state==='stopped'&&!d.desired_running)st='stopped manually';
  if(d.state==='not_responding'&&d.unresponsive_for>=0)st+=' '+d.unresponsive_for+' s';
- $('dmState').textContent=st;$('trLink').style.display=d.state==='running'?'inline':'none';var b=$('dmBtn'),run=(d.state==='running'||d.state==='not_responding');
+ $('dmState').textContent=st;$('dmRow').style.display=d.state==='running'?'none':'';$('trLink').style.display=d.state==='running'?'inline':'none';var b=$('dmBtn'),run=(d.state==='running'||d.state==='not_responding');
  b.textContent=run?'Stop Transmission':'Start Transmission';b.className=run?'danger':'';b.disabled=!!d.busy;
  var n=d.state==='stopped'&&!d.desired_running?'Stopped with the button: it will not start by itself until you start it.':(d.busy?'Please wait: an operation is in progress (starting may take up to a minute).':'');
  if(d.last_error&&d.state!=='running')n=(n?n+' ':'')+(d.busy?'The previous attempt failed: ':'The last start failed: ')+d.last_error+(d.busy?'':'. If starting does not work, restart Transmission.elf through Payload Manager.');
@@ -158,23 +157,14 @@ function dmRender(d){var st=DM[d.state]||d.state;if(d.state==='running'&&d.pid)s
  $('dmNote').textContent=n}
 /* Shared confirmation and message dialog instead of the system confirm() and alert() */
 var cfmCb=null;
-function cfmAsk(title,text,okLabel,cb,danger){$('cfmTitle').textContent=title;$('cfmText').textContent=text;$('cfmOk').textContent=okLabel;$('cfmOk').className=danger===false?'':'danger';$('cfmCancel').style.display='';cfmCb=cb;popOpen($('cfmModal'),'flex');$('cfmCancel').focus()}
-function cfmInfo(title,text){cfmAsk(title,text,'OK',null,false);$('cfmCancel').style.display='none';$('cfmOk').focus()}
+function cfmAsk(title,text,okLabel,cb,danger){$('cfmTitle').textContent=title;$('cfmText').textContent=text;$('cfmOk').textContent=okLabel;$('cfmOk').className=danger===false?'':'danger';$('cfmModal').classList.toggle('red',danger!==false);$('cfmCancel').style.display='';cfmCb=cb;popOpen($('cfmModal'),'flex');$('cfmCancel').focus()}
+function cfmInfo(title,text){cfmAsk(title,text,'OK',null,false);$('cfmModal').classList.add('red');$('cfmCancel').style.display='none';$('cfmOk').focus()} /* only errors use it: red */
 $('cfmCancel').onclick=function(){popClose($('cfmModal'));cfmCb=null};
 $('cfmOk').onclick=function(){var cb=cfmCb;popClose($('cfmModal'));cfmCb=null;if(cb)cb()};
 function dmDo(run){var m=$('dmMsg');m.className='msg';m.textContent='…';api('/api/daemon',{action:run?'stop':'start'},function(c,j){if(c===200){m.textContent=''}else{m.className='msg err';m.textContent=(j&&j.message)||'Error'}refresh()})}
 $('dmBtn').onclick=function(){var run=(state&&(state.daemon.state==='running'||state.daemon.state==='not_responding'));
  if(run){cfmAsk('Stop Transmission?','It will receive the termination signal: active torrents will be paused and resumed at the next start, and the ones you paused yourself will stay paused.','Stop',function(){dmDo(true)});return}
  dmDo(false)};
-var PW_NAMES={working:'Working',starting:'Starting',saving:'Power saving',suspend:'Going to rest mode',standby:'Rest mode',shutdown:'Shutting down'};
-function pwRender(st){var p=st&&st.power,e=$('pwState');if(!p){e.textContent='—';return}
- if(p.disabled){e.textContent='off: '+p.error;return}
- if(!p.ready){e.textContent='loading or not available';return}
- e.textContent=(PW_NAMES[p.name]||'Unknown')+' ('+p.state+')'}
-function ssRender(st){var ss=st&&st.syssvc,e=$('ssState');if(!ss){e.textContent='—';return}
-if(ss.hung){e.textContent='hung: '+ss.error;return}if(ss.disabled){e.textContent='off: '+ss.error;return}
-if(!ss.ready){e.textContent='loading or not available'+(ss.error?': '+ss.error:'');return}
-e.textContent='running; game: '+(ss.game_state==='none'?'None':ss.game_state==='on_screen'?'on screen':ss.game_state==='minimised'?'running but minimised':'Launched')+(ss.title?' ('+ss.title+')':'')+'; console language: '+(ss.system_lang<0?'Unknown':(ss.system_lang===8?'Russian':'code '+ss.system_lang))+'; keep awake: '+(ss.keepawake?'On':'Off')}
 function topRender(s){var mt=updMgrTag(),rdy=!!mt&&updLastJ.state==='ready',key=s.version+'|'+s.tr_version+'|'+s.ip+'|'+mt+'|'+(rdy?'r':'')+(updRestarting?'x':''),t=$('top');if(t._key===key)return;t._key=key;t.textContent='';
  t.appendChild(document.createTextNode('Version '+s.version));
  /* the link comes from the manager (updater.cc) and opens the update dialog: the offer, the progress, or "ready" with the Restart button */
@@ -215,6 +205,8 @@ function updNowClick(){
 function updButtons(update,restart,retry){$('updGo').style.display=update?'inline-block':'none';$('updRestart').style.display=restart?'inline-block':'none';$('updRetry').style.display=retry?'inline-block':'none'}
 /* The content of the dialog for the state of the update: the offer (version and what is new), the progress, "ready", or the failure */
 function updView(j){
+ $('updModal').classList.toggle('red',j.state==='error');$('updModal').classList.toggle('green',j.state!=='error');
+ $('updLater').textContent=j.state==='downloading'?'Hide':'Later'; /* during the download the button only hides the window: the download goes on */
  $('updOffer').style.display=j.state==='available'?'block':'none';$('updProgressRow').style.display=j.state==='downloading'?'block':'none';
  if(j.state==='available'){$('updVer').textContent=j.latest||'';$('updNotes').style.display=j.changelog?'inline':'none';if(j.changelog)$('updNotes').href=j.changelog;
   $('updTitle').textContent='Update available';$('updStatus').textContent='';updButtons(true,false,false)}
@@ -247,8 +239,8 @@ $('updRetry').onclick=function(){updUser=true;
   $('updRetry').style.display='none';$('updStatus').textContent='';updTimer=setTimeout(updPoll,500)})};
 /* Restart (the button of the dialog): one click, the buttons stay off until the restart is refused or has failed */
 function updRestartNow(){if(updRestarting)return;updRestarting=true;if(state)topRender(state);
- var bs=[$('updNow'),$('updRestart')];bs.forEach(function(b){if(b)b.disabled=true});updUser=true;
- function back(t){updRestarting=false;bs.forEach(function(b){if(b)b.disabled=false});
+ var bs=[$('updNow'),$('updRestart')];bs.forEach(function(b){if(b)b.disabled=true});$('updLater').style.display='none';updUser=true; /* nothing to postpone any more */
+ function back(t){updRestarting=false;$('updLater').style.display='';bs.forEach(function(b){if(b)b.disabled=false});
   if(!updOpen&&updLastJ){updOpen=true;popOpen($('updModal'),'flex');updView(updLastJ)} /* wherever the click came from, the reason is shown */
   updSay(t);if(state)topRender(state)}
  api('/api/update',{action:'restart'},function(c,j){if(c!==200||!j||!j.ok){back((j&&j.message)||'Could not restart');return}
@@ -262,14 +254,15 @@ function updRestartNow(){if(updRestarting)return;updRestarting=true;if(state)top
   })()})}
 $('updRestart').onclick=updRestartNow;
 setTimeout(updPoll,2500);
-function render(s){state=s;ssRender(s.stats);pwRender(s.stats);$('fdCard').classList.toggle('fd-mono',s.config.web_icons==='mono');$('fdCard').classList.toggle('fd-open-on',s.config.web_openfolder==='bfpilot'||s.config.web_openfolder==='webfm');if(!formBuilt)buildForm(s.config);dmRender(s.daemon);notifState(s.notif_latest); var tr='http://'+location.hostname+':'+s.rpc_port+'/';
- topRender(s);$('bdState').textContent='SDK '+s.sdk+' · built '+s.built;
+function render(s){state=s;$('fdCard').classList.toggle('fd-mono',s.config.web_icons==='mono');$('fdCard').classList.toggle('fd-open-on',s.config.web_openfolder==='bfpilot'||s.config.web_openfolder==='webfm');if(!formBuilt)buildForm(s.config);dmRender(s.daemon);notifState(s.notif_latest); var tr='http://'+location.hostname+':'+s.rpc_port+'/';
+ topRender(s);
  $('trLink').href=tr;if(/PlayStation/i.test(navigator.userAgent||''))$('trLink').removeAttribute('target');else $('trLink').target='ps5tm-transmission-web'; /* a named tab: the next click goes to the same tab instead of opening a new one (no noopener: it would always open a new one) */
  var st=s.stats,t='',run=s.daemon.state==='running';
- t+=kv('Manager is running',fmt(s.uptime));
- if(!run||!st.rpc_ok||st.last_poll_age<0)t+=kv('Torrents','-')+kv('Speed','-');
- else t+=kv('Torrents',torrentsLine(st))+kv('Speed',speedLine(st))+kv('Last poll',st.last_poll_age+' s ago');
+ var polled=run&&st.rpc_ok&&st.last_poll_age>=0; /* the daemon, the manager uptime and the last poll are in Diagnostics: the main section shows them only when something is wrong (the Status row) */
+ if(!polled)t+=kv('Torrents','-')+kv('Speed','-');
+ else t+=kv('Torrents',torrentsLine(st))+kv('Speed',speedLine(st));
  $('status').innerHTML=t;
+ $('dgStatus').innerHTML=kv('Transmission',$('dmState').textContent)+kv('Manager is running',fmt(s.uptime))+kv('Last poll',polled?st.last_poll_age+' s ago':'-');
  if($('iconState')){var ic=s.icon;$('iconState').textContent=ic.busy?'in progress…':(ic.installed?'Installed':'not installed');
   $('iconInstall').disabled=!!ic.busy;$('iconRemove').disabled=!!ic.busy;var im=$('iconMsg');
   if(ic.error&&!ic.busy){im.className='msg err';im.textContent=ic.error}else if(!ic.busy&&im.className.indexOf('err')>=0){im.className='msg';im.textContent=''}}
@@ -293,7 +286,7 @@ function sleepRender(s){var a=s.autosleep,sl=s.sleep,busy=sl.phase!=='idle';
  $('sleepCancel').style.display=sl.phase==='countdown'?'inline-block':'none';
 }
 var quitting=false,quitTimer=null,quitDeadline=0;
-function quitShow(title,text,closable){$('quitSpin').style.display='none';$('quitDoneTitle').textContent=title;
+function quitShow(title,text,closable){$('quitDone').classList.toggle('red',!!closable);$('quitSpin').style.display='none';$('quitDoneTitle').textContent=title;
  $('quitDoneText').style.display=text?'block':'none';$('quitDoneText').textContent=text;$('quitClose').style.display=closable?'inline-block':'none'}
 function quitPoll(){
  if(!quitting)return;
@@ -307,7 +300,7 @@ $('quitCancel').onclick=function(){popClose($('quitModal'))};
 $('quitClose').onclick=function(){popClose($('quitDone'))};
 $('quitConfirm').onclick=function(){popClose($('quitModal'));
  api('/api/quit',{},function(c,j){if(c===200&&j&&j.ok){
-   quitting=true;$('quitSpin').style.display='inline-block';$('quitClose').style.display='none';
+   quitting=true;$('quitDone').classList.remove('red');$('quitSpin').style.display='inline-block';$('quitClose').style.display='none';
    $('quitDoneTitle').textContent='Transmission is closing';
    $('quitDoneText').style.display='block';
    $('quitDoneText').textContent='Downloads are being paused and the daemon is shutting down. This takes a few seconds.';
@@ -363,15 +356,18 @@ $('bell').onclick=function(ev){ev.stopPropagation();notifOpen=!notifOpen;if(noti
 $('bellPanel').onclick=function(ev){ev.stopPropagation()};
 document.addEventListener('click',function(){if(notifOpen){notifOpen=false;popClose($('bellPanel'));bellRender()}});
 function iconAct(a){var m=$('iconMsg');m.className='msg';m.textContent='';api('/api/icon',{action:a},function(c,j){if(c!==200){m.className='msg err';m.textContent=(j&&j.message)||'Error'}refresh()})}
-if($('iconInstall')){$('iconInstall').onclick=function(){iconAct('install')};$('iconRemove').onclick=function(){cfmAsk('Remove the icon?','The Transmission icon on the “Media” tab will be removed.','Remove',function(){iconAct('remove')})}}
+if($('iconInstall')){$('iconInstall').onclick=function(){iconAct('install')};$('iconRemove').onclick=function(){cfmAsk('Remove the icon?','The Transmission icon on the “Media” tab will be removed.','Remove',function(){iconAct('remove')},false)}}
 $('sleepCancel').onclick=function(){api('/api/sleep',{action:'cancel'},function(){refresh()})};
-function dgShow(t){$('dgOut').textContent=t}
-function dgGet(url,label){dgShow(label+'…');var x=new XMLHttpRequest();x.open('GET',url);x.onload=function(){var t=x.responseText;try{var j=JSON.parse(t);if(j&&j.text!==undefined)t=j.text}catch(e){}dgShow(t)};x.onerror=function(){dgShow('Connection error')};x.send()}
-$('dgAll').onclick=function(){dgGet('/api/diag/all','Snapshot')};
-$('dgSelect').onclick=function(){var r=document.createRange();r.selectNodeContents($('dgOut'));var s=window.getSelection();s.removeAllRanges();s.addRange(r)};
-$('dgProbe').onclick=function(){dgGet('/api/diag/probe','Check')};
-$('dgDisks').onclick=function(){dgGet('/api/diag/disks','Drives')};
-$('dgMounts').onclick=function(){dgGet('/api/diag/mounts','Mount points')};
+/* Diagnostics: one button. The console browser cannot save a file, so the manager writes /data/Transmission/report.txt and the page says where; any other browser downloads the report. */
+function dgSay(t,bad){var e=$('dgMsg');e.textContent=t;e.className='help'+(bad?' err':'');e.style.display=t?'block':'none'}
+$('dgReport').onclick=function(){var b=$('dgReport');b.disabled=true;dgSay('Preparing the report…',false);
+ function done(){b.disabled=false}
+ if(/PlayStation/.test(navigator.userAgent||'')){
+  api('/api/report',{action:'save'},function(c,j){done();
+   if(c===200&&j&&j.ok)dgSay('The report is saved as {1}. Copy it from the console (for example over FTP), look it through and send it.'.replace('{1}',j.path),false);
+   else dgSay((j&&j.message)||'Could not prepare the report',true)});return}
+ var a=document.createElement('a');a.href='/api/report';a.download='';a.style.display='none';document.body.appendChild(a);a.click();document.body.removeChild(a);
+ dgSay('The report is being downloaded. Look it through before you send it.',false);setTimeout(done,4000)};
 var DEL_ICON='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M10 11v6m4-6v6m5-11v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 var OPEN_ICON='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="m6 14l1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>';
 var EJECT_ICON='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 4 4.5 14h15z"/><rect x="5" y="16.5" width="14" height="3" rx="1"/></svg>';
@@ -422,13 +418,13 @@ function helpBtn(el,title,paras){var q=document.createElement('button');q.type='
 /* The full description of a setting (the “?” next to its short one), in the same window as the folder warnings. */
 function helpOpen(title,paras){var body=$('fdWarnBody');body.innerHTML='';$('fdWarnTitle').textContent=title;
  paras.forEach(function(t){var p=document.createElement('p');p.textContent=t;body.appendChild(p)});
- $('fdConfirm').style.display='none';$('fdCancel').textContent='Got it';popOpen($('fdModal'),'flex');$('fdCancel').focus()}
+ $('fdModal').classList.remove('red');$('fdConfirm').style.display='none';$('fdCancel').textContent='Got it';popOpen($('fdModal'),'flex');$('fdCancel').focus()}
 /* Folder warnings: internal drive and a file system without sparse files (exFAT, FAT32). confirm=false: help from the “?” icon in the list (no add button). */
 function fdWarn(reason,fs,confirm){var fsw=reason==='fs',body=$('fdWarnBody');body.innerHTML='';
  if(reason==='es'){$('fdWarnTitle').textContent='The console’s extended storage';
   var e1=document.createElement('p');e1.textContent='This drive is connected as the console’s extended storage (encrypted, managed by the system itself). Unmounting asks the system to disconnect it, the same as “Safely remove from PS5”. Close the games and apps that use it first; what is stored on it is unavailable until you connect the drive again.';body.appendChild(e1);
   var e2=document.createElement('p');e2.textContent='You can also disconnect such a drive with the console itself: Settings → Storage → your drive → “Safely remove from PS5”.';body.appendChild(e2);
-  $('fdConfirm').style.display='none';$('fdCancel').textContent='Got it';popOpen($('fdModal'),'flex');$('fdCancel').focus();return}
+  $('fdModal').classList.remove('red');$('fdConfirm').style.display='none';$('fdCancel').textContent='Got it';popOpen($('fdModal'),'flex');$('fdCancel').focus();return}
  function p(text,boldFirst){var e=document.createElement('p');if(boldFirst){var b=document.createElement('b');b.textContent=boldFirst;e.appendChild(b);e.appendChild(document.createTextNode(' '+text))}else e.textContent=text;body.appendChild(e)}
  if(fsw){$('fdWarnTitle').textContent='A drive with the {1} file system: freezes are possible'.replace('{1}',fs||'exFAT');
   p('Drives with the exFAT and FAT32 file systems have no “sparse” files. When a torrent downloads pieces in a random order, the system fills the whole gap before the next piece with zeros; during that time Transmission does not respond, and sometimes the whole console hangs. We soften this with the “Fix for USB drives” (pieces are downloaded in order), but the speed is lower.');
@@ -437,7 +433,7 @@ function fdWarn(reason,fs,confirm){var fsw=reason==='fs',body=$('fdWarnBody');bo
  else{$('fdWarnTitle').textContent='Internal drive: better not to do this';
   p('Using the console’s internal drive for downloads is not advisable: torrents quickly fill it up, and constant writing wears out the system SSD.');
   p(confirm?'Add the folder on the internal drive anyway?':'','It is better to use an external USB drive or an M.2 SSD.')}
- $('fdConfirm').style.display=confirm?'':'none';$('fdCancel').textContent=confirm?'Cancel':'Got it';
+ $('fdModal').classList.toggle('red',!!confirm);$('fdConfirm').style.display=confirm?'':'none';$('fdCancel').textContent=confirm?'Cancel':'Got it';
  popOpen($('fdModal'),'flex');$('fdCancel').focus()}
 function fdAdd(p,confirm){fdMsg('');
  api('/api/folders',{action:'add',path:p,confirm:!!confirm},function(c,j){
@@ -494,9 +490,4 @@ $('fdDelConfirm').onclick=function(){var p=fdDelPending;popClose($('fdDelModal')
  api('/api/folders',{action:'remove',path:p},function(c,j){if(c!==200)fdMsg((j&&j.error)||'Could not remove',true);else fdMsg('Folder removed');fdRefresh()})};
 document.addEventListener('keydown',function(e){if(e.key==='Escape'||e.keyCode===27){$('fdCancel').onclick();$('fdDelCancel').onclick();$('umCancel').onclick();$('actCancel').onclick();$('cfmCancel').onclick()}});
 fdRefresh();setInterval(fdRefresh,10000);
-$('dgThreads').onclick=function(){dgGet('/api/diag/threads','Threads')};
-$('dgLog').onclick=function(){dgGet('/api/diag/log','Log')};
-$('dgLogFile').onclick=function(){dgGet('/api/diag/logfile','Manager log file')};
-$('dgTlog').onclick=function(){dgGet('/api/diag/tlog','Transmission log')};
-$('dgDlog').onclick=function(){dgGet('/api/diag/dlog','Daemon log')};
 refresh();setInterval(refresh,1500);

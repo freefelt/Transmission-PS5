@@ -34,7 +34,9 @@
 - **Download folders you choose.** Torrents can only go to the folders you put on a list. A folder on a disk that is not plugged in is never used, so Transmission cannot fill the console's own memory by accident.
 - **Care for USB disks.** Disks formatted as exFAT or FAT32 can make a console hang on big torrents. A per-torrent "USB disk fix" prevents that, and the folder picker warns you. A USB disk can be unmounted from the page.
 - **A watchdog.** It starts, stops and restarts Transmission when it hangs or when the network changes, and remembers which torrents were running.
-- **Sleep and power.** When all downloads are finished, the console goes to rest mode or turns off. Downloads pause while a game is on the screen.
+- **Sleep and power.** When all downloads are finished, the console goes to rest mode or turns off. Downloads pause while a game is on the screen. Transmission is stopped cleanly before the console sleeps or shuts down and starts again after the wake-up.
+- **Updating from the settings page.** The page offers a new release and installs it (for a file started through Payload Manager).
+- **A .torrent file chooser for the console.** The PS5 browser has no working file chooser, so the page brings its own: it lists the disks of the console and the `.torrent` files on them.
 - **Notifications** on the console and in a log.
 - **English and Russian** are built in; any other language is a plain text file ([how](#-languages)).
 - An optional **icon** on the "Media" tab that opens the settings page.
@@ -104,7 +106,7 @@ Without a folder Transmission **refuses** to add torrents. This is on purpose: i
 
 ### Update, stop, remove
 
-- **Update:** send the new file again (Step 3). The manager is replaced; a running Transmission is restarted by itself only if the new file brings a different Transmission build (the torrents are paused and resumed). When a newer release exists, the settings page shows a link next to the version.
+- **Update:** once a day (and when you press **Check now** in *Settings → Updates*) the settings page looks for a newer release. If there is one, a link "update available N" appears next to the version: it opens a window where you press **Update** (the file is downloaded, checked against its SHA-256 and put in place of the old one) and then **Restart**. This works when Transmission was started from [Payload Manager](https://github.com/itsPLK/ps5-payload-manager) (or its file lies in `/data/pldmgr/payloads` or on a USB disk). Otherwise send the new file again (Step 3): the manager is replaced, and a running Transmission is restarted by itself only if the new file brings a different Transmission build (the torrents are paused and resumed).
 - **Stop completely:** on the settings page press the exit button in the top-left corner. Your torrents are paused and remembered.
 - **Remove:** restart the console and do not send the file again. If you installed the icon, press **Remove** in the icon section first. All data is in `/data/Transmission/`; delete that folder if you want to remove everything.
 
@@ -123,10 +125,10 @@ Without a folder Transmission **refuses** to add torrents. This is on purpose: i
 | The page does not open | Check that your phone or computer is in the same network as the PS5, and use the exact address from the notification. If port 9092 is busy, the next free port is used, and the notification shows it. |
 | "Folder is not in the list" or a torrent is not added | Add a download folder first (Step 6). |
 | A folder says "disk not connected" | Plug the disk in again. Torrents on a missing disk are never started. |
-| Nothing happens after sleep | A known problem of some loaders: send the file again. |
+| Transmission does not work after sleep | Transmission is stopped before the console sleeps and starts again a few seconds after it wakes up (the torrents resume). If that did not happen, prepare a report (see below) and, as a workaround, send the file again (Step 3). |
 | The console freezes with a USB disk | Make sure the **USB disk fix** was on for that torrent, or use the M.2 SSD. |
 
-Still stuck? Open an [issue](https://github.com/freefelt/Transmission-PS5/issues) and attach **Diagnostics → Diagnostic snapshot (everything at once)** from the settings page (if the page does not open, the file `/data/Transmission/logs/shim.log`).
+Still stuck? Open an [issue](https://github.com/freefelt/Transmission-PS5/issues) and attach the report: on the settings page open **Diagnostics** and press **Prepare report** (on a computer it downloads a file; in the PS5 browser it is saved as `/data/Transmission/report.txt`). Look through it before you send it: it has paths and the names of your torrents. If the page does not open, send the file `/data/Transmission/logs/shim.log`.
 
 ## 🌍 Languages
 
@@ -141,7 +143,7 @@ on the settings page. The format of the file is described at the top of `locales
 ```
 
 That is all: the script downloads what it needs into `.deps/` (the PS5 SDK, zlib, libevent, OpenSSL, curl, Transmission), builds
-everything, checks the imports of the result and writes **`build/Transmission-<version>.elf`** (about 12 MB). Every download is
+everything, checks the imports of the result and writes **`build/Transmission-<version>.elf`** (about 17 MB). Every download is
 pinned to an exact version and verified with a SHA-256; nothing newer is ever picked up silently. The first build takes from several
 minutes to half an hour depending on the machine, later ones are much faster.
 

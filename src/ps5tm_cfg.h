@@ -213,6 +213,8 @@ struct SysSnapshot
 SysSnapshot ps5tm_syssvc_snapshot();
 std::string ps5tm_syssvc_json(); // same for /api/state
 std::string ps5tm_power_json(); // the power state of the console (rest mode, shutdown) for /api/state
+std::string ps5tm_hw_model(); // the model of the console as it reports itself (CFI-xxxx), "" if unknown (hwmodel.cc)
+std::string ps5tm_hw_model_note(); // why it is unknown
 int ps5tm_system_language(); // console language code (Russian 8); -1 while unknown
 std::string ps5tm_sleep_via_system(); // system sleep request: "" = request accepted, otherwise the reason
 extern "C" int ps5tm_power_off_syscall(void); // power off the console by system call (on the host only a flag in a file)

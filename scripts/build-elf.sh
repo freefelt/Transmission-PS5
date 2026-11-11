@@ -92,7 +92,8 @@ for t in curl tar make perl cmake; do have "$t" || die "not found: $t"; done
 
 # shellcheck disable=SC1091
 source "$SDK_DIR/toolchain/prospero.sh"
-SDK_VER="$(cat "$SDK_DIR/.ps5tm-sdk-version" 2>/dev/null || echo unknown)" # shown in the diagnostics
+SDK_VER="$(cat "$SDK_DIR/.ps5tm-sdk-version" 2>/dev/null || echo unknown)" # shown in the report
+COMMIT="${PS5TM_COMMIT:-$(git -C "$REPO" describe --always --dirty --abbrev=12 2>/dev/null || echo unknown)}" # shown in the report ("-dirty": the tree had changes; PS5TM_COMMIT sets it when the tree has no .git, for example on a build VM)
 P="$PS5_SYSROOT$PREFIX"
 for lib in libz.a libssl.a libcrypto.a; do
     [ -f "$P/lib/$lib" ] || die "missing $lib. Run scripts/deps.sh first"
@@ -260,7 +261,7 @@ compile_c_role() { # role-macro  object-dir  sources...
     local macro="$1" odir="$2"; shift 2
     mkdir -p "$odir"; rm -f "$odir"/*.o
     for f in "$@"; do
-        "$CC" -O2 -fPIC -Wall -Wextra -D"$macro" -DSHIM_VERSION="\"$SHIM_VER\"" -DPS5TM_SDK_VERSION="\"$SDK_VER\"" -I"$SRCDIR" -I"$SRCDIR/common" -I"$GEN" -c "$f" -o "$odir/$(basename "$f" .c).o"
+        "$CC" -O2 -fPIC -Wall -Wextra -D"$macro" -DSHIM_VERSION="\"$SHIM_VER\"" -DPS5TM_SDK_VERSION="\"$SDK_VER\"" -DPS5TM_COMMIT="\"$COMMIT\"" -I"$SRCDIR" -I"$SRCDIR/common" -I"$GEN" -c "$f" -o "$odir/$(basename "$f" .c).o"
     done
 }
 compile_c_role PS5TM_DAEMON "$GEN/obj-daemon" "$SRCDIR"/common/*.c "$SRCDIR"/daemon/*.c

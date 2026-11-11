@@ -8,7 +8,13 @@ Notation: **[verified]** from sources or tests, **[conclusion]** reasoning on ve
 > Later changes that touch these notes: the "download folders" protection (section 5, "what is missing") exists since 0.0.31: new torrents
 > can only go to the folders the user listed, and a folder on a disk that is not connected is never used. `scripts/check-imports.sh`
 > compares the imports of the built ELF with `scripts/allowed-imports.txt` and fails the build on a new one (the PS5 loader crashes on an
-> unknown import). The rest of the text is as it was written.
+> unknown import).
+> Since 0.4 the manager can also **download and install a new release of itself** (`src/manager/updater.cc`): only when the user turns the
+> automatic check on (once a day, to `api.github.com`) or presses "Check now", and only after the user presses "Update" in the window. The
+> file is compared with the `.sha256` of the same release, which protects against a damaged download but **not** against a compromised
+> release; there is deliberately no signature, because the ELF loader on port 9021 already runs any file from anyone on the network. The
+> old file is replaced in its own folder, nothing else is written outside `/data/Transmission`. The rest of the text is as it was written;
+> where it says "no auto-update", read "no update without the user's click".
 
 ---
 
@@ -75,8 +81,8 @@ Already done **[verified, in the code and in the tests on the host]**:
 
 What is missing:
 
-- **limits on paths**: through the web interface any download folder can be given, and the process runs with effective uid 0 and
-  without a sandbox. Whoever is on the local network can write files anywhere (what could follow from that was not checked);
+- **limits on paths beyond the download folders**: the download folders are limited since 0.0.31 (see the note at the top), but the
+  process still runs with effective uid 0 and without a sandbox, and the file calls of our own code are not held to a white list;
 - an automatic check of the finished ELF for forbidden calls and extra paths.
 
 ## 6. Docker and isolation
@@ -103,7 +109,7 @@ Three levels, and for each it is visible what it guarantees:
    Sony's libraries.
 
 In practice: the dependencies and SHA-256 sums are pinned, the patches are listed with their reasons, writes are atomic, there are no
-downloads and no auto-update on the fly, the defaults are safe, and the port and the rights of the services are limited.
+downloads except the update that the user starts with a click, the defaults are safe, and the port and the rights of the services are limited.
 
 ## 8. Plan (in order, nothing started)
 

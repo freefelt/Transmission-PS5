@@ -47,6 +47,20 @@ const char *ps5tm_sdk_version(void)
     return PS5TM_SDK_VERSION;
 }
 
+/* The commit the file was built from (git describe, "-dirty" when the working tree had changes; "unknown" outside a git checkout): it is shown in the report */
+const char *ps5tm_commit(void)
+{
+    return PS5TM_COMMIT;
+}
+
+/* The firmware of the console as the SDK itself knows it (crt1.o: the SDK version of the process parameter, 0x11200000 = 11.20); 0 when it could not be read.
+ * The SDK start code calls the same function, so it is not a new import. On the host a stub answers (tests/build/stubs/hoststub.c). */
+extern uint32_t kernel_get_fw_version(void);
+unsigned ps5tm_firmware(void)
+{
+    return (unsigned)kernel_get_fw_version();
+}
+
 const char *ps5tm_build_time(void)
 {
     return __DATE__ " " __TIME__;

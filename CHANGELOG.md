@@ -12,6 +12,8 @@ Every bullet is ONE line (no wrapped lines). `VERSION` is raised only after the 
 - Added updating from the settings page.
 - Add Torrents: the "Browse…" button is now localized.
 - A .torrent file can now be chosen on the console.
+- Diagnostics now has a button that prepares a report for the author.
+- Interface improvements.
 - .torrent files can be chosen on iPad Safari again.
 
 ### Install

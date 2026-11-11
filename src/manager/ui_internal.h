@@ -54,6 +54,8 @@ int ps5tm_current_ip(char* out, std::size_t size);
 unsigned ps5tm_resume_generation(void);
 char const* ps5tm_version(void);
 char const* ps5tm_sdk_version(void);
+char const* ps5tm_commit(void);
+unsigned ps5tm_firmware(void);
 char const* ps5tm_build_time(void);
 long ps5tm_uptime_seconds(void);
 int ps5tm_process_running(char const* name);
@@ -167,7 +169,7 @@ struct Request
 };
 
 bool read_request(int fd, Request& req);
-void send_response(int fd, int code, char const* status, char const* content_type, std::string const& body);
+void send_response(int fd, int code, char const* status, char const* content_type, std::string const& body, char const* extra_headers = ""); // extra_headers: complete lines ending in \r\n
 void send_json(int fd, int code, char const* status, std::string const& json);
 std::string state_json();
 bool is_json(Request const& req);
@@ -176,6 +178,10 @@ void handle_icon(int fd, Request const& req);
 void handle_sleep(int fd, Request const& req, std::string const& client);
 void handle_autosleep(int fd, Request const& req);
 std::string read_file_tail(char const* path, std::size_t max_bytes);
+std::string sleep_events_text(); // report.cc
+std::string report_text(); // report.cc: everything for the author in one text
+void handle_report_download(int fd);
+void handle_report_save(int fd, Request const& req);
 void handle_daemon(int fd, Request const& req);
 struct LangData
 {

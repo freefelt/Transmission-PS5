@@ -59,7 +59,7 @@
 
     function showError(name, text) {
         var overlay = document.createElement('div');
-        overlay.className = 'ps5-modal';
+        overlay.className = 'ps5-modal ps5-red';   // an error: red
         var box = document.createElement('div');
         box.className = 'ps5-modal-box';
         var h = document.createElement('h3');

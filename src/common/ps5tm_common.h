@@ -89,6 +89,11 @@
 #define PS5TM_SDK_VERSION "unknown"
 #endif
 
+/* The commit of the build: the build scripts pass -DPS5TM_COMMIT="abc123def456" (shown in the report). */
+#ifndef PS5TM_COMMIT
+#define PS5TM_COMMIT "unknown"
+#endif
+
 #define DAEMON_STACK (8u * 1024u * 1024u)
 #define WORKER_STACK (2u * 1024u * 1024u)
 

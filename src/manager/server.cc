@@ -75,21 +75,9 @@ static void handle_connection(int fd, std::string const& client)
         // from the disk: also has the lines of other instances of the manager (for example a new one that could not replace the old one and exited)
         send_response(fd, 200, "OK", "text/plain; charset=utf-8", std::string{ "# the manager log file (logs/shim.log, the last lines; it also holds the starts of other instances)\n" } + read_file_tail("/data/Transmission/logs/shim.log", 30000));
     }
-    else if (req.method == "GET" && req.path == "/api/diag/all")
+    else if (req.method == "GET" && req.path == "/api/report")
     {
-        std::vector<char> ring(7000);
-        std::size_t const ring_len = ps5tm_log_ring_copy(ring.data(), ring.size());
-        std::string text = std::string{ "=== version " } + ps5tm_version() + ", SDK " + ps5tm_sdk_version() + ", built " + ps5tm_build_time() + ", running " + std::to_string(ps5tm_uptime_seconds()) + " s\n";
-        text += "\n=== Transmission check\n" + run_isolated(ps5tm_rpc_probe_text, 8, "check") + "\n";
-        text += "\n=== disks\n" + run_isolated(disks_report_text, 8, "disks") + "\n";
-        text += "\n=== threads\n" + ps5tm_thread_snapshot_text();
-        text += "\n=== console processes and ports\n" + ps5tm_process_list_text();
-        text += "\n=== wrapper log (from memory)\n" + std::string{ ring.data(), ring_len };
-        text += "\n=== manager log file (shim.log, latest)\n" + read_file_tail("/data/Transmission/logs/shim.log", 8000);
-        text += "\n=== Transmission log (latest)\n" + read_file_tail("/data/Transmission/logs/transmission.log", 3500);
-        text += "\n=== daemon output (console.log, latest)\n" + read_file_tail("/data/Transmission/logs/console.log", 3500);
-        text += "\n=== daemon wrapper log (daemon.log, latest)\n" + read_file_tail("/data/Transmission/logs/daemon.log", 3500);
-        send_response(fd, 200, "OK", "text/plain; charset=utf-8", text);
+        handle_report_download(fd);
     }
     else if (req.method == "GET" && req.path == "/api/notifications")
     {
@@ -104,34 +92,7 @@ static void handle_connection(int fd, std::string const& client)
     }
     else if (req.method == "GET" && req.path == "/api/diag/sleeplog")
     {
-        // Sleep and daemon lifecycle events from the manager log file (it survives a manager restart)
-        std::string const all = read_file_tail("/data/Transmission/logs/shim.log", 1500000);
-        std::vector<std::string> keep;
-        std::size_t pos = 0;
-        while (pos < all.size())
-        {
-            std::size_t end = all.find('\n', pos);
-            if (end == std::string::npos)
-            {
-                end = all.size();
-            }
-            std::string const line = all.substr(pos, end - pos);
-            pos = end + 1;
-            for (char const* key : { "sleep:", "frozen for", "resume detected", "daemon: start", "daemon: running", "daemon: paused", "daemon: SIGTERM", "daemon: restarting", "NOTIFY: Transmission stopped", "NOTIFY: Transmission started", "console will go to sleep", "====" })
-            {
-                if (line.find(key) != std::string::npos)
-                {
-                    keep.push_back(line);
-                    break;
-                }
-            }
-        }
-        std::string text = "# sleep and daemon start/stop events from logs/shim.log (the last 200)\n";
-        for (std::size_t i = keep.size() > 200 ? keep.size() - 200 : 0; i < keep.size(); ++i)
-        {
-            text += keep[i] + "\n";
-        }
-        send_response(fd, 200, "OK", "text/plain; charset=utf-8", text);
+        send_response(fd, 200, "OK", "text/plain; charset=utf-8", sleep_events_text());
     }
     else if (req.method == "GET" && req.path == "/api/diag/dlog")
     {
@@ -147,7 +108,7 @@ static void handle_connection(int fd, std::string const& client)
             std::string{ "# the Transmission log itself (transmission.log, the last lines)\n" } +
                 read_file_tail("/data/Transmission/logs/transmission.log", 12000));
     }
-    else if (req.method == "POST" && (req.path == "/api/config" || req.path == "/api/quit" || req.path == "/api/sleep" || req.path == "/api/autosleep" || req.path == "/api/notifications" || req.path == "/api/folders" || req.path == "/api/fs" || req.path == "/api/daemon" || req.path == "/api/icon" || req.path == "/api/update"))
+    else if (req.method == "POST" && (req.path == "/api/config" || req.path == "/api/quit" || req.path == "/api/sleep" || req.path == "/api/autosleep" || req.path == "/api/notifications" || req.path == "/api/folders" || req.path == "/api/fs" || req.path == "/api/daemon" || req.path == "/api/icon" || req.path == "/api/update" || req.path == "/api/report"))
     {
         if (!is_json(req))
         {
@@ -168,6 +129,10 @@ static void handle_connection(int fd, std::string const& client)
         else if (req.path == "/api/update")
         {
             send_json(fd, 200, "OK", updater_action(req.body));
+        }
+        else if (req.path == "/api/report")
+        {
+            handle_report_save(fd, req);
         }
         else if (req.path == "/api/quit")
         {

@@ -153,9 +153,9 @@ window.ps5Peers = function (el, text) {
     var USB = /^\/mnt\/usb\d/i;
     window.ps5UsbFix = true;
 
-    function modal(title, paragraphs, buttons) {
+    function modal(title, paragraphs, buttons, warn) {   // warn: a red window (a warning or a confirmation), otherwise blue (information)
         var overlay = document.createElement('div');
-        overlay.className = 'ps5-modal';
+        overlay.className = 'ps5-modal' + (warn ? ' ps5-red' : '');
         var box = document.createElement('div');
         box.className = 'ps5-modal-box';
         var h = document.createElement('h3');
@@ -278,7 +278,7 @@ window.ps5Peers = function (el, text) {
             modal(OFF_TITLE, OFF, [
                 { text: ps5t('Turn off the fix'), cls: 'danger', onClick: function () { cb.checked = false; window.ps5UsbFix = false; } },
                 { text: ps5t('Cancel'), onClick: function () { cb.checked = true; window.ps5UsbFix = true; } }
-            ]);
+            ], true);
         });
     }
 

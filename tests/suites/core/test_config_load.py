@@ -35,7 +35,7 @@ print("== diagnostics on the new manager (they look at the DAEMON process)")
 c, t = api("GET", "/api/diag/threads"); txt = json.loads(t)["text"]
 check("thread snapshot is of the daemon process", c == 200 and "tid=" in txt and f"pid {daemon_pids()[0]}" in txt, txt.strip().split("\n")[-1])
 c, t = api("GET", "/api/diag/probe"); check("probe: Transmission answers", "connect OK" in json.loads(t)["text"] and "409" in json.loads(t)["text"], json.loads(t)["text"])
-for path, needle in (("/api/diag/log", "daemon: running"), ("/api/diag/dlog", "daemon.log"), ("/api/diag/tlog", "transmission.log"), ("/api/diag/all", "=== daemon wrapper log")):
+for path, needle in (("/api/diag/log", "daemon: running"), ("/api/diag/dlog", "daemon.log"), ("/api/diag/tlog", "transmission.log"), ("/api/report", "=== daemon wrapper log")):
     c, t = api("GET", path); check(f"{path}", c == 200 and needle in t, t.split("\n")[0][:60])
 kill_all(); loader.close()
 sys.exit(summary())

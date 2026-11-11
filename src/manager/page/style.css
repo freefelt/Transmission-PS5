@@ -38,15 +38,18 @@ button.ok{background:#2e9e5b}
 .hd{display:flex;align-items:center;gap:11px;margin:6px 0 4px}.hd img{border-radius:12px;flex:none}.hd h1{margin:0}.hd .help{margin:2px 0 0}
 .row.sub{margin-left:30px;border-top:0}
 .modal{position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;background:rgba(5,7,10,.78);align-items:center;justify-content:center;padding:16px;overflow:auto}
-.modal-card{max-width:560px;background:#1b212b;border:2px solid #c0392b;border-radius:14px;padding:18px 22px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
-.modal-card h3{margin:0 0 10px;color:#ff6b6b;font-size:19px}.modal-card p{margin:10px 0}
+.modal-card{max-width:560px;background:#1b212b;border:2px solid #2f6fed;border-radius:14px;padding:18px 22px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.modal-card h3{margin:0 0 10px;color:#8fb7ff;font-size:19px}.modal-card p{margin:10px 0}
+/* The colors of the pop-ups: blue = information, help and pickers (the default); red = a warning or a confirmation of an important operation (class red); green = the update (class green) */
+.modal.red .modal-card{border-color:#c0392b}.modal.red .modal-card h3{color:#ff6b6b}
+.modal.green .modal-card{border-color:#2e9e5b}.modal.green .modal-card h3{color:#5fd68a}
 .quit-head{display:flex;align-items:center;gap:10px;margin:0 0 10px}.quit-head h3{margin:0}
-#updModal .modal-card{border-color:#2e9e5b}#updModal .modal-card h3{color:#5fd68a}
 #updProgressRow{height:10px;background:#0f1319;border:1px solid #3a4658;border-radius:5px;overflow:hidden;margin:12px 0}
 #updBar{height:100%;width:0;background:#2f6fed;transition:width .2s linear}
 
-.spin{display:inline-block;width:18px;height:18px;border:3px solid #3a4658;border-top-color:#ff6b6b;border-radius:50%;animation:ps5spin .8s linear infinite;flex:none}
+.spin{display:inline-block;width:18px;height:18px;border:3px solid #3a4658;border-top-color:#8fb7ff;border-radius:50%;animation:ps5spin .8s linear infinite;flex:none}
 @keyframes ps5spin{to{transform:rotate(360deg)}}
+#dgInfo{margin-top:14px}
 .modal-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px}
 @keyframes ps5fade{from{opacity:0}to{opacity:1}}
 @keyframes ps5pop{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}

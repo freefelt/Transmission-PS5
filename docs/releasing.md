@@ -23,4 +23,4 @@ The "Releases → latest" link of the README always points to the newest release
 **If the release fails** (a test failed, a typo in the tag): fix the problem on `main`, delete the tag (`git push origin :refs/tags/0.1` and `git tag -d 0.1`), delete the
 half-made release on the Releases page if it exists, and tag again. Run the **Tests** workflow by hand ("Run workflow", "full") at any time to check the whole set without a release.
 
-Since 0.1 the `VERSION` file holds the last released version: raise the second number for the next release (`0.2`, `0.3`, ...; no third number) and write a `CHANGELOG.md` section for it.
+The `VERSION` file holds the version that is being prepared. Raise the second number (`0.2`, `0.3`, ...; no third number) only after the current version has been tagged and published; until then new changes go into the same `CHANGELOG.md` section.

@@ -63,8 +63,10 @@ dialog.dialog-container.popup.ps5-out,#prefs-dialog.ps5-out{animation:ps5dlgout 
 .ps5-modal.ps5-out .ps5-modal-box{animation:ps5popout 140ms ease both}
 @media (prefers-reduced-motion:reduce){.ps5-modal,.ps5-modal .ps5-modal-box,.ps5-modal.ps5-out,.ps5-modal.ps5-out .ps5-modal-box{animation:none}}
 .ps5-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:14px}
-.ps5-modal-box{max-width:540px;max-height:88vh;overflow:auto;background:var(--color-bg-popup);color:var(--color-fg-on-popup);border:1px solid var(--color-dialog-border);border-radius:10px;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
-.ps5-modal-box h3{margin:0 0 10px;font-size:18px}
+.ps5-modal-box{max-width:540px;max-height:88vh;overflow:auto;background:var(--color-bg-popup);color:var(--color-fg-on-popup);border:2px solid var(--ps5-pop-blue,#2f6fed);border-radius:10px;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.ps5-modal-box h3{margin:0 0 10px;font-size:18px;color:var(--ps5-pop-blue-fg,#8fb7ff)}
+/* ps5: the colors of our pop-ups: blue = information, help and pickers (the default); red = a warning, an error or a confirmation of an important operation (class ps5-red on the overlay) */
+.ps5-modal.ps5-red .ps5-modal-box{border-color:var(--ps5-pop-red,#c0392b)}.ps5-modal.ps5-red .ps5-modal-box h3{color:var(--ps5-pop-red-fg,#ff6b6b)}
 .ps5-modal-box p{margin:0 0 10px;line-height:1.4;font-size:14px}
 .ps5-modal-buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 .ps5-modal-buttons button{appearance:none;background:var(--color-bg-primary);border:1px solid var(--color-border-default);border-radius:5px;color:var(--color-fg-primary);padding:8px 14px;cursor:pointer}

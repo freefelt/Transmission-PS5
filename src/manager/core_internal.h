@@ -660,6 +660,7 @@ inline constexpr int SysHangSeconds = 30;
 
 extern std::atomic<bool> g_ss_want_ka;
 void syssvc_main();
+void hwmodel_main(); // the model of the console, asked once in a thread of its own (hwmodel.cc)
 void power_main(); // the power state of the console: a thread (powerstate.cc)
 long power_poll_age();
 void sleep_power_enter(char const* reason); // the console goes to sleep or shuts down (sleep.cc)

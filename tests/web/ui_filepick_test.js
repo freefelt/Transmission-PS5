@@ -63,12 +63,15 @@ fs.writeFileSync(TXT, "not a torrent");
   // a file that disappears before Add: our error window
   await page.click("#toolbar-open"); await sleep(700);
   await page.evaluate(() => document.getElementById("ps5-file-btn").click()); await sleep(800);
+  const pkc = await page.evaluate(() => { const b = document.querySelector("#ps5-file-picker .ps5-modal-box"); return b ? { b: getComputedStyle(b).borderTopColor, h: getComputedStyle(b.querySelector("h3")).color } : null; });
+  check("the .torrent file picker is BLUE (not a warning): blue border and title", !!pkc && pkc.b === "rgb(47, 111, 237)" && pkc.h === "rgb(143, 183, 255)", JSON.stringify(pkc));
   await page.evaluate(() => { const r = [...document.querySelectorAll("#pkList .pk-row")].find((x) => /torrents/.test(x.textContent)); if (r) r.click(); }); await sleep(800);
   await page.evaluate((n) => { const r = [...document.querySelectorAll("#pkList .pk-file-row")].find((x) => x.textContent.indexOf(n) >= 0); r.click(); }, "pick_" + PID + ".torrent"); await sleep(300);
   await page.evaluate(() => document.getElementById("pkChoose").click()); await sleep(300);
   fs.unlinkSync(FILE);
   await page.evaluate(() => [...document.querySelectorAll(".open-torrent .dialog-buttons button")].pop().click()); await sleep(2000);
-  const err = await page.evaluate(() => { const m = document.querySelector(".ps5-modal"); return { vis: !!m, text: m ? m.textContent : "" }; });
+  const err = await page.evaluate(() => { const m = document.querySelector(".ps5-modal:not(.ps5-picker-overlay)"); return { vis: !!m, text: m ? m.textContent : "", border: m ? getComputedStyle(m.querySelector(".ps5-modal-box")).borderTopColor : "" }; });
+  check("the error window is RED", err.border === "rgb(192, 57, 43)", err.border);
   check("a .torrent file that disappeared: an error window with the file name is shown (no silent failure)", err.vis && err.text.indexOf("pick_" + PID + ".torrent") >= 0, JSON.stringify(err));
 
   // Escape closes the picker (the Add dialog was closed by the failed Add: open it again)

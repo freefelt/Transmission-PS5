@@ -7,7 +7,7 @@
 --color-progressbar-fg-1:#edefff;--color-progressbar-fg-2:#fff;--color-progressbar-fg-3:#e6e9ee;
 --color-progressbar-leech:#3b82f6;--color-progressbar-queued:#6366f1;--color-progressbar-magnet:#d9a21b;--color-progressbar-verify:#d9a21b;--color-progressbar-paused:#4b5565;--color-progressbar-seed-1:#22a55b;--color-progressbar-seed-2:#2b3646;--color-progressbar-seed-paused:#4b5565;--color-progressbar-background-2:#2b3646;
 --progress-bar-shadow-1:0 0 0 #000;--progress-bar-shadow-2:0 1px 2px rgba(0,0,0,.55);--progress-bar-shadow-3:0 0 0 #000;
---ps5-card:#1a2029;--ps5-field:#1b212b}
+--ps5-card:#1a2029;--ps5-field:#1b212b;--ps5-pop-blue:#2f6fed;--ps5-pop-blue-fg:#8fb7ff;--ps5-pop-red:#c0392b;--ps5-pop-red-fg:#ff6b6b}
 :root .contrast-more{--color-bg-primary:#000;--color-bg-odd:#000;--color-bg-popup:#000;--color-toolbar-background:#000;--ps5-card:#000;--ps5-field:#000}
 :root .contrast-less{--color-bg-primary:#12161c;--color-bg-odd:#12161c;--color-bg-popup:#1b212b}
 /* drop-down list arrow (color matched to the theme) */

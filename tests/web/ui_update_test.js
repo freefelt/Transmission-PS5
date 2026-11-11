@@ -11,7 +11,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const browser = await puppeteer.launch({ executablePath: require("./chrome"), args: ["--no-sandbox", "--disable-gpu"], headless: "new" });
   const page = await browser.newPage(); await page.setViewport({ width: 900, height: 1100 }); const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   let state = "available", asked = 0, failDownload = false, restartError = ""; const posts = [];
-  let stepped = false, checkPolls = 0, nextState = "idle", nextResult = "latest", lastCheck = 0, lastResult = "";   // "Check now": checking for a few polls, then nextState
+  let slowRestart = false, stepped = false, checkPolls = 0, nextState = "idle", nextResult = "latest", lastCheck = 0, lastResult = "";   // "Check now": checking for a few polls, then nextState
   const body = (s) => ({ state: s, current: "0.4", latest: "0.5", changelog: "https://example.test/releases/tag/0.5", progress: s === "downloading" ? 42 : s === "ready" ? 100 : 0, can_update: s === "available",
                          error: s === "error" ? "download failed: boom" : "", restarting: false, restart_error: s === "ready" ? restartError : "", enabled: true, last_check: lastCheck, last_result: lastResult });
   await page.setRequestInterception(true);
@@ -24,7 +24,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const action = JSON.parse(r.postData() || "{}").action; posts.push(action);
       if (action === "download") state = failDownload ? "error" : "downloading";
       if (action === "check") { if (stepped) { state = "checking"; checkPolls = 2; } else state = "available"; }
-      if (action === "restart") restartError = "the ELF loader is not listening";
+      if (action === "restart") restartError = slowRestart ? "" : "the ELF loader is not listening";
       r.respond({ status: 200, contentType: "application/json", body: '{"ok":true}' });
     } else r.continue();
   });
@@ -51,6 +51,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click("#updGo"); await sleep(900);
   const progress = await dlg();
   check("Update: the title is 'Обновляю…', the version and 'Что нового' are gone, the progress and its text are shown, only Later is left", progress.title === "Обновляю…" && progress.offer === "none" && progress.progress !== "none" && progress.width === "42%" && /Скачивание обновления/.test(progress.status) && progress.go === "none" && progress.restart === "none", JSON.stringify(progress));
+  check("during the download the left button says 'Скрыть' (the download goes on), not 'Позже'", await page.evaluate(() => document.getElementById("updLater").textContent) === "Скрыть");
   await page.click("#updLater"); state = "downloading"; await sleep(1500);
   check("closed during the download, the dialog does not come back by itself", (await dlg()).modal === "none");
   state = "ready"; await sleep(1800);
@@ -97,8 +98,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click("#updLater"); await sleep(300);
   await page.evaluate(() => document.getElementById("updNow").click()); await sleep(600);
   check("the row button 'Перезапустить' does not restart either: it opens the dialog", (await dlg()).modal === "flex" && posts.filter((a) => a === "restart").length === 2, JSON.stringify(posts));
+  slowRestart = true; restartError = ""; await page.evaluate(() => { const b = document.getElementById("updNow"); if (getComputedStyle(document.getElementById("updModal")).display === "none") b.click(); }); await sleep(500);
+  check("before the restart the left button says 'Позже' again", await page.evaluate(() => document.getElementById("updLater").textContent) === "Позже");
+  await page.click("#updRestart"); await sleep(700);
+  const rs = await page.evaluate(() => ({ later: getComputedStyle(document.getElementById("updLater")).display, restart: document.getElementById("updRestart").disabled, status: document.getElementById("updStatus").textContent }));
+  check("after Restart is pressed the 'Позже' button is hidden and Restart is off while the restart goes on", rs.later === "none" && rs.restart === true && /перезапускается/i.test(rs.status), JSON.stringify(rs));
   check("no JS errors in the failure paths", errors.length === 0, errors.join(";"));
-  await page.click("#updLater"); await sleep(300);
+  slowRestart = false;   // the dialog stays in the middle of a restart (Позже is hidden): the next part loads the page anew
 
   // ---- the Updates group of the Settings card: the checkbox, the "Last check" line and the Check now button
   stepped = true; state = "idle"; lastCheck = 0; lastResult = ""; nextState = "idle"; nextResult = "failed"; posts.length = 0; await load();

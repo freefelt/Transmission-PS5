@@ -4,12 +4,19 @@
 #include <unistd.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 /* PS5 platform: on the host we print notifications and write the calls to the log */
 static void calllog(const char *s) { FILE *f = fopen("/tmp/ps5tm_host_calls.log", "a"); if (f) { fprintf(f, "%ld %s\n", (long)time(NULL), s); fclose(f); } }
 int sceKernelSendNotificationRequest(int d, void *r, size_t s, int f) { (void)d; (void)s; (void)f; printf("NOTIFY: %s\n", (char *)r + 45); fflush(stdout); return 0; }
 int klog_printf(const char *f, ...) { (void)f; return 0; }
+/* The firmware of the console (the SDK start file has the real function): the file /tmp/ps5tm_test_firmware holds a hex number like 0x11200000, default 11.20 */
+uint32_t kernel_get_fw_version(void) {
+    unsigned v = 0x11200000u; FILE *f = fopen("/tmp/ps5tm_test_firmware", "r");
+    if (f) { char b[32] = {0}; if (fgets(b, sizeof b, f)) v = (unsigned)strtoul(b, NULL, 16); fclose(f); }
+    return v;
+}
 /* TEST imitation of the auto-power-off system service: the mode is in the file /tmp/ps5tm_test_power
  * ok | missing | nomodule | returnvalue | error | hang */
 #include <unistd.h>

@@ -9,7 +9,7 @@
 <button id="quitBtn" title="Exit Transmission" aria-label="Exit Transmission"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e6e9ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
 <button id="bell" title="Notifications"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e6e9ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span id="bellBadge"></span></button>
 <div id="bellPanel"></div>
-<div id="quitModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
+<div id="quitModal" class="modal red" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
 <h3>Exit Transmission?</h3>
 <p>Active downloads will be paused and remembered, Transmission (the daemon) will shut down cleanly, then this page will close together with the Transmission.elf manager.</p>
 <p>You can start it again by sending Transmission.elf to the console: the paused downloads will resume.</p>
@@ -21,7 +21,7 @@
 <p>To start it again, send Transmission.elf to the console.</p>
 <div class="modal-btns"><button id="quitClose" class="alt" style="display:none">Close</button></div>
 </div></div>
-<div id="updModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
+<div id="updModal" class="modal green" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
 <h3 id="updTitle">Update available</h3>
 <div id="updOffer">
 <p><span id="updText">A new version is available:</span> <b id="updVer"></b></p>
@@ -36,7 +36,7 @@
 <button id="updRestart" style="display:none">Restart</button>
 </div>
 </div></div>
-<div id="actModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
+<div id="actModal" class="modal red" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
 <h3 id="actTitle"></h3>
 <div id="actBody"></div>
 <label id="actHideRow" style="display:none;align-items:center;gap:8px;margin:10px 0"><input type="checkbox" id="actHide"><span>Do not show this warning again (until the next version)</span></label>
@@ -47,18 +47,18 @@
 <div id="fdWarnBody"></div>
 <div class="modal-btns"><button id="fdCancel" class="alt">Cancel</button><button id="fdConfirm" class="danger">Add anyway</button></div>
 </div></div>
-<div id="cfmModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
+<div id="cfmModal" class="modal red" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
 <h3 id="cfmTitle"></h3>
 <p id="cfmText"></p>
 <div class="modal-btns"><button id="cfmCancel" class="alt">Cancel</button><button id="cfmOk" class="danger">OK</button></div>
 </div></div>
-<div id="fdDelModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
+<div id="fdDelModal" class="modal red" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
 <h3>Remove the download folder?</h3>
 <p id="fdDelPath" style="word-break:break-all;font-weight:600"></p>
 <p>The folder will be removed from the list. The files and torrents in it are not deleted.</p>
 <div class="modal-btns"><button id="fdDelCancel" class="alt">Cancel</button><button id="fdDelConfirm" class="danger">Remove from the list</button></div>
 </div></div>
-<div id="fdUmModal" class="modal" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
+<div id="fdUmModal" class="modal red" style="display:none" role="dialog" aria-modal="true"><div class="modal-card">
 <h3 id="umTitle"></h3>
 <p id="umPath" style="word-break:break-all;font-weight:600"></p>
 <div id="umBody"></div>
@@ -71,7 +71,7 @@
 <div id="top" class="help">Loading…</div></div></div>
 
 <h2>Transmission</h2>
-<div class="card"><div class="kv"><span>Status</span><span id="dmState">…</span></div>
+<div class="card"><div class="kv" id="dmRow" style="display:none"><span>Status</span><span id="dmState">…</span></div>
 <div class="help" id="dmNote"></div>
 <p style="display:flex;align-items:center;gap:10px"><button id="dmBtn" class="danger">…</button><span id="dmMsg" class="msg"></span><a id="trLink" href="#" style="display:none;margin-left:auto">Open the Transmission web interface</a></p>
 <div id="status"></div></div>
@@ -111,20 +111,17 @@
 <div class="acc" id="accDiag"><button type="button" class="acc-head" id="accDiagBtn" aria-expanded="false"><span>Diagnostics</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
 <div id="accDiagBody" style="display:none">
 <div class="card">
-<div class="kv"><span>Build</span><span id="bdState">…</span></div>
-<div class="kv"><span>System service</span><span id="ssState">…</span></div>
-<div class="kv"><span>Power state</span><span id="pwState">…</span></div>
-<div class="help" id="dgInfo">If Transmission “hangs” after sleep but this page works, press the snapshot button and send the result.</div>
-<div class="btnrow"><button id="dgAll">Diagnostic snapshot (everything at once)</button> <button class="alt" id="dgSelect">Select text</button></div>
-<div class="btnrow"><button class="alt" id="dgProbe">Check Transmission</button> <button class="alt" id="dgDisks">Drives</button> <button class="alt" id="dgMounts">Mount points</button> <button class="alt" id="dgThreads">Threads</button> <button class="alt" id="dgLog">Manager log</button> <button class="alt" id="dgLogFile">Manager log file</button> <button class="alt" id="dgDlog">Daemon log</button> <button class="alt" id="dgTlog">Transmission log</button></div>
-<pre id="dgOut" style="white-space:pre-wrap;word-break:break-all;background:#0f1319;border:1px solid #2a3340;border-radius:8px;padding:10px;font-size:12px;max-height:420px;overflow:auto;margin:6px 0 0"></pre>
+<div id="dgStatus"></div>
+<div class="help" id="dgInfo">If something does not work, press the button and send the report to the author. It has the version, the settings, the drives and the logs. Look it through before you send it: it has paths and the names of your torrents. The address of the console is hidden.</div>
+<div class="btnrow"><button id="dgReport">Prepare report</button></div>
+<div class="help" id="dgMsg" style="display:none"></div>
 </div>
 </div></div>
 <div class="acc" id="accCredits"><button type="button" class="acc-head" id="accCreditsBtn" aria-expanded="false"><span>Credits and licenses</span><svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
 <div id="accCreditsBody" style="display:none">
 <div class="card"><div class="credit">
 <p>Transmission icon: <a href="https://github.com/Zabriskije" target="_blank" rel="noopener">Zabriskije</a> (<a href="https://github.com/transmission/transmission/discussions/5479" target="_blank" rel="noopener">discussion thread</a>).</p>
-<p>Examples and sources that helped the development: <a href="https://github.com/ItsBlurf/BFpilot" target="_blank" rel="noopener">BFpilot</a> (icon registration through SceIpmi and SceAppInstUtil), <a href="https://github.com/itsPLK/ps5-payload-manager" target="_blank" rel="noopener">Payload Manager</a> (process names, icon installation, process memory), <a href="https://github.com/drakmor/shadowMountPlus" target="_blank" rel="noopener">ShadowMountPlus</a> (set of libraries), <a href="https://github.com/ps5-payload-dev/websrv" target="_blank" rel="noopener">websrv</a> and <a href="https://github.com/ps5-payload-dev/ftpsrv" target="_blank" rel="noopener">ftpsrv</a> (installing a shortcut app), <a href="https://github.com/ps5-payload-dev/sdk" target="_blank" rel="noopener">ps5-payload-sdk</a> (John Törnblom) and <a href="https://github.com/transmission/transmission" target="_blank" rel="noopener">Transmission</a>.</p>
+<p>Examples and sources that helped the development: <a href="https://github.com/ItsBlurf/BFpilot" target="_blank" rel="noopener">BFpilot</a> (icon registration through SceIpmi and SceAppInstUtil), <a href="https://github.com/itsPLK/ps5-payload-manager" target="_blank" rel="noopener">Payload Manager</a> (process names, icon installation, process memory, finding the started file for the update), <a href="https://github.com/drakmor/shadowMountPlus" target="_blank" rel="noopener">ShadowMountPlus</a> (set of libraries, safe USB eject, the power state of the console), <a href="https://github.com/ps5-payload-dev/websrv" target="_blank" rel="noopener">websrv</a> and <a href="https://github.com/ps5-payload-dev/ftpsrv" target="_blank" rel="noopener">ftpsrv</a> (installing a shortcut app), <a href="https://github.com/ps5-payload-dev/sdk" target="_blank" rel="noopener">ps5-payload-sdk</a> (John Törnblom) and <a href="https://github.com/transmission/transmission" target="_blank" rel="noopener">Transmission</a>.</p>
 <p>Sleep and power off: <a href="https://github.com/ps5-linux/ps5-linux-loader" target="_blank" rel="noopener">ps5-linux-loader</a> (the way to enter rest mode), <a href="https://github.com/MasterPS0/PS5-Power-Payloads-Project" target="_blank" rel="noopener">PS5-Power-Payloads-Project</a> (power off and rest mode calls), <a href="https://github.com/deox1111/ps5-library" target="_blank" rel="noopener">ps5-library</a> (ideas about working in rest mode and device pairing), <a href="https://github.com/manos555555/PS5-Suite" target="_blank" rel="noopener">PS5-Suite</a> (a note about the official power off calls).</p>
 <p>Transmission is distributed under the GPL license (version 2 or 3, your choice).</p>
 <p>Icons on the Transmission page: monochrome <a href="https://github.com/lucide-icons/lucide" target="_blank" rel="noopener">Lucide</a> (ISC); color: toolbar buttons and the USB drive icon <a href="https://github.com/Richard9394/MingCute" target="_blank" rel="noopener">MingCute</a> (Apache-2.0), torrent icons <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noopener">Fluent Emoji</a> (MIT), the internal drive <a href="https://github.com/microsoft/fluentui-system-icons" target="_blank" rel="noopener">Fluent UI System Icons</a> (MIT). The M.2 SSD icon was drawn for this project. The sets were taken through <a href="https://iconify.design" target="_blank" rel="noopener">Iconify</a>.</p>

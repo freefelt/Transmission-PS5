@@ -42,7 +42,7 @@ The PS5 build applies `ps5/` then `transmission/`; the test build applies `trans
    # ... edit libtransmission/torrent.cc ...
    diff -u --label a/libtransmission/torrent.cc --label b/libtransmission/torrent.cc /tmp/torrent.cc.orig libtransmission/torrent.cc > /tmp/new.patch
    ```
-3. Put the result in `patches/transmission/` as the next number with a short name, e.g. `0012-what-it-does.patch`, and write a few lines of description before the first `diff` line (`Subject: ...`).
+3. Put the result in `patches/transmission/` as the next number with a short name, e.g. `0014-what-it-does.patch`, and write a few lines of description before the first `diff` line (`Subject: ...`).
 4. Run `./build.sh` again. The tree is unpacked anew and all patches are applied from scratch whenever the set of patches changes, so a patch that does not apply on the pristine sources fails the build at once.
 5. A patch in `transmission/` must not depend on the ones in `ps5/`: it is applied to both the PS5 and the test build.
 
@@ -63,7 +63,8 @@ line, so it is changed by a script instead:
   a few hooks in the minified code, translation calls). **Every substitution must find its place exactly once, otherwise the build
   fails**: that is how a move to another Transmission version announces itself.
 - `js/`: `ps5-compat.js` (support for the console's old WebKit, folder tiles, the "USB disk fix" dialog, animations, the "Open folder"
-  menu item), `ps5-panel.js` (the disk panel), `ps5-i18n.js` (translation).
+  menu item, our own "Browse…" button outside the console), `ps5-panel.js` (the disk panel), `ps5-files.js` (the "Choose a .torrent file" button of the console), `ps5-i18n.js` (translation).
+  The picker window itself is `src/manager/page/ps5-picker.js` and `ps5-picker.css`: the settings page uses it for download folders, and `web_patch.pl` copies it into the web interface.
 - `css/`: the dark and light themes and the shared styles.
 - `icons/`: the two icon sets (color and monochrome) as CSS; see `icons/README.md` for where the icons come from.
 

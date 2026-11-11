@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   check("a refresh with the same folders changes nothing (no flicker of the height)", fr.out.every((x) => Math.abs(x - fr.base) <= 1), JSON.stringify(fr));
   // the picker is a popup (checked by ui_picker_test.js)
   // 4) after all the animations no temporary styles are left on the page
-  const left = await page.evaluate(() => [...document.querySelectorAll("[style]")].filter((e) => /transition|overflow: hidden/.test(e.getAttribute("style")) && e.id !== "dgOut").map((e) => e.id || e.className));
+  const left = await page.evaluate(() => [...document.querySelectorAll("[style]")].filter((e) => /transition|overflow: hidden/.test(e.getAttribute("style"))).map((e) => e.id || e.className));
   check("no temporary animation styles are left on the page afterwards, no JS errors", left.length === 0 && errors.length === 0, JSON.stringify({ left, errors }));
   console.log(`\n${pass}/${pass + fail} animation checks passed`); await browser.close(); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.log("crashed", e); process.exit(2); });

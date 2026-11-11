@@ -24,11 +24,21 @@ class Catalog(BaseHTTPRequestHandler):
     bad_sha = False        # the .sha256 of 0.5 does not belong to the file that is served
     latest = "0.5"
     hits = {}
+    drop = {}              # path -> how many of the next requests get no answer at all (the connection is closed)
+    latest_status = 200    # the status of /latest (500: an answer that is final)
     def log_message(self, *a):
         pass
     def do_GET(self):
         path = self.path.split("?")[0]
         Catalog.hits[path] = Catalog.hits.get(path, 0) + 1
+        if Catalog.drop.get(path, 0) > 0:
+            Catalog.drop[path] -= 1
+            self.close_connection = True
+            try: self.connection.shutdown(socket.SHUT_RDWR)
+            except OSError: pass
+            return
+        if path == "/latest" and Catalog.latest_status != 200:
+            self.send_error(Catalog.latest_status); return
         if path == "/latest":
             body = json.dumps({"tag_name": Catalog.latest, "html_url": "http://example.invalid/releases/tag/" + Catalog.latest}).encode()
         elif path == "/history":
@@ -122,6 +132,8 @@ def prepare(root, meta, loader_port, latest="0.5"):
     Catalog.bad_sha = False
     Catalog.latest = latest
     Catalog.hits = {}
+    Catalog.drop = {}
+    Catalog.latest_status = 200
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), Catalog)
     port = httpd.server_address[1]
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
@@ -241,6 +253,56 @@ def run_no_update(root, loader_port):
         finish(ctx)
 
 
+def run_retries(root, loader_port):
+    """A request of the check that gets no answer at all (a slow DNS, a dropped connection) is made up to 3 times with a pause (here 2 s, the console: 60 s); an HTTP answer is final."""
+    os.environ["PS5TM_UPDATER_RETRY_PAUSE"] = "2"
+    sha_path = "/download/0.4/Transmission-0.4.elf.sha256"
+    ctx = prepare(root, None, loader_port)
+    try:
+        Catalog.drop = {"/latest": 2}
+        status(); seen = set()
+        t0 = time.time()
+        while time.time() - t0 < 25 and status().get("state") != "available":
+            seen.add(status().get("state")); time.sleep(0.3)
+        harness.check("update (retries): two requests without an answer, the third one gets it: the check ends 'available' after exactly 3 requests", status().get("state") == "available" and Catalog.hits.get("/latest") == 3, (Catalog.hits, status()))
+        harness.check("update (retries): while the attempts go on the state is 'checking' (the page shows it)", "checking" in seen, seen)
+        log = harness.shim()
+        harness.check("update (retries): the log says that it tries again, with the attempt number", "trying again in 2 s (attempt 2 of 3)" in log and "trying again in 2 s (attempt 3 of 3)" in log, [l for l in log.split("\n") if "update:" in l][:8])
+    finally:
+        finish(ctx)
+    os.environ["PS5TM_UPDATER_RETRY_PAUSE"] = "2"
+    ctx = prepare(root, None, loader_port)
+    try:
+        Catalog.drop = {"/latest": 99}
+        status()
+        r = wait(lambda: status().get("state") == "idle" and status().get("last_result") == "failed", 25, 0.3)
+        harness.check("update (retries): no answer three times: the check ends as failed after exactly 3 requests (not more)", r and Catalog.hits.get("/latest") == 3, (Catalog.hits, status()))
+        for _ in range(4):
+            status(); time.sleep(0.4)
+        harness.check("update (retries): after the failure the page loads do not ask again at once (the next try is in 15 minutes)", Catalog.hits.get("/latest") == 3, Catalog.hits)
+    finally:
+        finish(ctx)
+    os.environ["PS5TM_UPDATER_RETRY_PAUSE"] = "2"
+    ctx = prepare(root, None, loader_port)
+    try:
+        Catalog.latest_status = 500
+        status()
+        r = wait(lambda: status().get("state") == "idle" and status().get("last_result") == "failed", 15, 0.3)
+        time.sleep(3)
+        harness.check("update (retries): an HTTP answer that is not 200 is final: one request, no more attempts", r and Catalog.hits.get("/latest") == 1, (Catalog.hits, status()))
+    finally:
+        finish(ctx)
+    os.environ["PS5TM_UPDATER_RETRY_PAUSE"] = "2"
+    ctx = prepare(root, None, loader_port)
+    try:
+        Catalog.drop = {sha_path: 1}
+        status()
+        r = wait(state_is("available"), 25, 0.3)
+        harness.check("update (retries): the request for the .sha256 of the running version is made again too", r and Catalog.hits.get(sha_path) == 2, (Catalog.hits, status()))
+    finally:
+        finish(ctx)
+
+
 def run_setting(root, loader_port):
     """The setting 'Check for updates automatically', the saved time of the last check, and the once-a-day limit across a restart."""
     ctx = prepare(root, None, loader_port, latest="0.4")
@@ -291,4 +353,5 @@ if __name__ == "__main__":
     run_bad_sha("/data/pldmgr/payloads/Transmission", 19023)
     run_no_update("/data/pldmgr/payloads/Transmission", 19024)
     run_setting("/data/pldmgr/payloads/Transmission", 19025)
+    run_retries("/data/pldmgr/payloads/Transmission", 19026)
     sys.exit(harness.summary())

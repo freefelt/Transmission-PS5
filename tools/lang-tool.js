@@ -87,7 +87,7 @@ function cmdCheck(dir, enPath, ruPath) {
   const unused = [...emap].filter(([, v]) => !used.has(v)).map(([k]) => k);
   if (unused.length) {
     ok = false; console.log('ERROR: English texts of the table that are not a fragment of the page:', unused.length);
-    unused.slice(0, 10).forEach((k) => console.log('   ', k, JSON.stringify(emap.get(k)).slice(0, 90)));
+    unused.slice(0, 100).forEach((k) => console.log('   ', k, JSON.stringify(emap.get(k)).slice(0, 90)));
   }
   const inv = new Map();
   emap.forEach((v, k) => { if (!inv.has(v)) inv.set(v, []); inv.get(v).push(k); });

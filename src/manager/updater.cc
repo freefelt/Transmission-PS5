@@ -51,6 +51,8 @@ constexpr std::size_t MaxElf = 64u << 20;
 constexpr std::chrono::seconds CheckEvery{ 24 * 60 * 60 }; // an automatic check at most once a day
 constexpr std::chrono::seconds CheckRetry{ 15 * 60 };      // ... but sooner again when GitHub could not be reached
 constexpr std::chrono::seconds NoWait{ 0 };
+constexpr int RequestAttempts = 3;         // a request of the check that got no answer at all is made up to 3 times ...
+constexpr long RetryPauseSeconds = 60;     // ... with this pause between the attempts (the test hook PS5TM_UPDATER_RETRY_PAUSE shortens it)
 constexpr char const* StateFile = "/data/Transmission/update_state.txt"; // last_check=<epoch seconds> and last_result=<word> of the last finished check
 constexpr int MaxScanDepth = 3;
 
@@ -255,6 +257,44 @@ static bool http_get(std::string const& url, std::string& body, long& status, st
         return false;
     }
     return true;
+}
+
+// How long to wait between the attempts (seconds); the environment variable is a test hook
+static long retry_pause_seconds()
+{
+    char const* const value = std::getenv("PS5TM_UPDATER_RETRY_PAUSE");
+    if (value != nullptr && value[0] != '\0')
+    {
+        long const n = std::strtol(value, nullptr, 10);
+        if (n >= 0 && n <= 600)
+        {
+            return n;
+        }
+    }
+    return RetryPauseSeconds;
+}
+
+// A request that got no answer at all (the name lookup, the connection, TLS) is made again after a pause, up to RequestAttempts times: on some networks the DNS of the
+// console is slow for a minute after the start and answers later. An HTTP answer, whatever its status, is final. It all happens in the thread of the check:
+// no page is needed, the page only shows "checking" meanwhile.
+static bool http_get_retry(std::string const& url, std::string& body, long& status, std::string& error)
+{
+    for (int attempt = 1;; ++attempt)
+    {
+        if (http_get(url, body, status, error))
+        {
+            return true;
+        }
+        bool const again = attempt < RequestAttempts;
+        shim_log("update: %s: %s%s", url.c_str(), error.c_str(), again ? " (no answer)" : " (no answer; giving up)");
+        if (!again)
+        {
+            return false;
+        }
+        long const pause = retry_pause_seconds();
+        shim_log("update: trying again in %ld s (attempt %d of %d)", pause, attempt + 1, RequestAttempts);
+        std::this_thread::sleep_for(std::chrono::seconds(pause));
+    }
 }
 
 static bool http_download(std::string const& url, std::string const& path, std::string& error)
@@ -779,10 +819,9 @@ static bool fetch_sha(std::string const& version, std::string& hash, bool& not_f
     std::string body;
     long status = 0;
     std::string error;
-    if (!http_get(sha_url(version), body, status, error))
+    if (!http_get_retry(sha_url(version), body, status, error))
     {
-        shim_log("update: %s: %s", sha_url(version).c_str(), error.c_str());
-        return false;
+        return false; // the failure is in the log
     }
     if (status == 404)
     {
@@ -1193,27 +1232,13 @@ static void check_thread()
     std::string body;
     long status = 0;
     std::string error;
-    bool got = false;
-    for (int attempt = 0; attempt < 2 && !got; ++attempt)
-    {
-        if (attempt > 0)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-        }
-        got = http_get(api_url(), body, status, error) && status == 200;
-        if (!got)
-        {
-            // no answer at all (status 0: name lookup, connection, TLS) is tried once more; an answer that is not 200 is not
-            bool const again = attempt == 0 && status == 0;
-            shim_log("update: latest release: %s (HTTP %ld)%s", error.c_str(), status, again ? ", trying once more" : "");
-            if (!again)
-            {
-                break;
-            }
-        }
-    }
+    bool const got = http_get_retry(api_url(), body, status, error) && status == 200;
     if (!got)
     {
+        if (status != 0)
+        {
+            shim_log("update: latest release: HTTP %ld", status); // an answer that is not 200 is final: no more attempts
+        }
         set_none("failed", CheckRetry);
         return;
     }
