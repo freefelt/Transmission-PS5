@@ -8,17 +8,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const browser = await puppeteer.launch({ executablePath: require("./chrome"), args: ["--no-sandbox", "--disable-gpu"], headless: "new" });
   const page = await browser.newPage(); await page.setViewport({ width: 900, height: 1100 }); const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   let state = "available", asked = 0, failDownload = false, restartError = ""; const posts = [];
+  let stepped = false, checkPolls = 0, nextState = "idle", nextResult = "latest", lastCheck = 0, lastResult = "";   // "Check now": checking for a few polls, then nextState
   const body = (s) => ({ state: s, current: "0.4", latest: "0.5", changelog: "https://example.test/releases/tag/0.5", progress: s === "downloading" ? 42 : s === "ready" ? 100 : 0, can_update: s === "available",
-                         error: s === "error" ? "download failed: boom" : "", restarting: false, restart_error: s === "ready" ? restartError : "" });
+                         error: s === "error" ? "download failed: boom" : "", restarting: false, restart_error: s === "ready" ? restartError : "", enabled: true, last_check: lastCheck, last_result: lastResult });
   await page.setRequestInterception(true);
   page.on("request", (r) => {
     if (r.method() === "GET" && /\/api\/update$/.test(r.url())) {
       asked++;
+      if (state === "checking" && --checkPolls < 0) { state = nextState; lastCheck = 1731330000; lastResult = nextResult; }
       r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body(state)) });
     } else if (r.method() === "POST" && /\/api\/update$/.test(r.url())) {
       const action = JSON.parse(r.postData() || "{}").action; posts.push(action);
       if (action === "download") state = failDownload ? "error" : "downloading";
-      if (action === "check") state = "available";
+      if (action === "check") { if (stepped) { state = "checking"; checkPolls = 2; } else state = "available"; }
       if (action === "restart") restartError = "the ELF loader is not listening";
       r.respond({ status: 200, contentType: "application/json", body: '{"ok":true}' });
     } else r.continue();
@@ -65,5 +67,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click("#updRestart"); await sleep(1500);
   check("pressing Restart again sends a new request", posts.filter((a) => a === "restart").length === 2, JSON.stringify(posts));
   check("no JS errors in the failure paths", errors.length === 0, errors.join(";"));
+
+  // ---- the Updates group of the Settings card: the checkbox, the "Last check" line and the Check now button
+  stepped = true; state = "idle"; lastCheck = 0; lastResult = ""; nextState = "idle"; nextResult = "failed"; posts.length = 0; await load();
+  const row = () => page.evaluate(() => ({ line: document.getElementById("updLast").textContent, off: document.getElementById("updNow").disabled, btn: document.getElementById("updNow").textContent,
+    label: document.getElementById("f_row_update_check").querySelector("label").firstChild.textContent, box: document.getElementById("f_update_check").checked, head: [...document.querySelectorAll("#form .help")].some((x) => x.textContent === "Обновления"),
+    modal: getComputedStyle(document.getElementById("updModal")).display, title: document.getElementById("updTitle").textContent }));
+  const r0 = await row();
+  check("Settings has 'Обновления': the checkbox 'Проверять обновления автоматически' (on by default), 'Ещё не проверялось' and an enabled 'Проверить сейчас'", r0.head && r0.label === "Проверять обновления автоматически" && r0.box === true && r0.line === "Ещё не проверялось" && r0.btn === "Проверить сейчас" && r0.off === false, JSON.stringify(r0));
+  await page.evaluate(() => document.getElementById("updNow").click()); await sleep(400);
+  const r1 = await row();
+  check("Check now sends a check, shows 'Проверка…' and disables the button meanwhile", posts.includes("check") && r1.line === "Проверка…" && r1.off === true, JSON.stringify({ posts, r1 }));
+  await sleep(4300);
+  const r2 = await row(), parts = r2.line.split(" · ");
+  check("when the check ends the line says when (a date and time) and how: 'Не удалось проверить'; the button works again", parts.length === 2 && parts[0].length > 6 && parts[1] === "Не удалось проверить" && r2.off === false, JSON.stringify(r2));
+  nextState = "available"; nextResult = "available"; posts.length = 0;
+  await page.evaluate(() => document.getElementById("updNow").click()); await sleep(4800);
+  const r3 = await row();
+  check("a check that finds a new version opens the update dialog and the line says 'Доступно обновление'", r3.modal === "flex" && r3.title === "Доступно обновление" && r3.line.split(" · ")[1] === "Доступно обновление", JSON.stringify(r3));
+  check("no JS errors in the Updates row", errors.length === 0, errors.join(";"));
   await browser.close(); console.log(`\n${pass}/${pass + fail} update dialog checks passed`); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.log("crashed", e); process.exit(2); });

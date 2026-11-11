@@ -199,6 +199,12 @@ static std::string config_text(Ps5tmConfig const& c)
     t += "# Applies after the Transmission page is refreshed.\n";
     t += std::string{ "web_theme=" } + ps5tm_web_theme_name(c.web_theme.load()) + "\n";
     t += "\n";
+    t += "# ---------------- Updates ----------------\n";
+    t += "\n";
+    t += "# Ask GitHub for a new release by itself (at most once a day) and offer it on the settings page. The \"Check now\" button\n";
+    t += "# of the page works either way.\n";
+    t += std::string{ "update_check=" } + yn(c.update_check) + "\n";
+    t += "\n";
     t += "# ---------------- Log retention ----------------\n";
     t += "\n";
     t += "# Notifications (the bell on the page) are kept this many days, then deleted. 1 to 365.\n";
@@ -295,6 +301,7 @@ static std::string set_by_name(std::string const& key, std::string const& value)
         { "daemon_restart_default_migrated", &g_cfg.restart_default_migrated },
         { "sleep_notify_before", &g_cfg.sleep_notify_before },
         { "keep_awake", &g_cfg.keep_awake },
+        { "update_check", &g_cfg.update_check },
     };
     for (auto const& entry : bools)
     {

@@ -157,6 +157,7 @@ def run_case(root, meta, loader_port):
         j = status()
         ok = j.get("latest") == "0.5" and j.get("changelog", "").endswith("/tag/0.5")
         harness.check("update: status has 0.5 and a changelog URL", ok, j)
+        harness.check("update: the finished check is remembered (time, result 'available') and the setting is on", j.get("last_result") == "available" and j.get("last_check", 0) > 0 and j.get("enabled") is True, j)
         if not ok:
             return
         c, t = api("POST", "/api/update", {"action": "download"})
@@ -240,10 +241,54 @@ def run_no_update(root, loader_port):
         finish(ctx)
 
 
+def run_setting(root, loader_port):
+    """The setting 'Check for updates automatically', the saved time of the last check, and the once-a-day limit across a restart."""
+    ctx = prepare(root, None, loader_port, latest="0.4")
+    cfg, state_file = "/data/Transmission/config.cfg", "/data/Transmission/update_state.txt"
+    up = lambda: wait(lambda: api("GET", "/api/state")[0] == 200, 40, 0.3)
+    try:
+        c, t = api("GET", "/api/state")
+        harness.check("update (setting): update_check is on by default and is in the state", json.loads(t)["config"].get("update_check") is True, t[:200])
+        c, t = api("POST", "/api/config", {"update_check": False})
+        harness.check("update (setting): it can be switched off, config.cfg says so", c == 200 and json.loads(t).get("ok") and "update_check=no" in open(cfg).read(), t)
+        for _ in range(3):
+            status(); time.sleep(0.3)
+        j = status()
+        harness.check("update (setting off): page loads do not ask GitHub; the status says disabled and never checked", Catalog.hits.get("/latest", 0) == 0 and j.get("state") == "idle" and j.get("enabled") is False and j.get("last_check") == 0, (Catalog.hits, j))
+        c, t = api("POST", "/api/update", {"action": "check"})
+        r = wait(lambda: status().get("state") == "idle" and status().get("last_check", 0) > 0, 10, 0.3)
+        j = status()
+        harness.check("update (setting off): the Check now button still asks, the answer and its time are remembered", c == 200 and r and Catalog.hits.get("/latest") == 1 and j.get("last_result") == "latest", (t, Catalog.hits, j))
+        saved = open(state_file).read() if os.path.exists(state_file) else ""
+        harness.check("update (setting off): the state file has the time and the result", ("last_check=%d" % j.get("last_check", -1)) in saved and "last_result=latest" in saved, saved)
+        first = j.get("last_check", 0)
+
+        # a restart: the time survives, the setting too; with it on again a settled answer under a day old is not asked again
+        kill_all(); ctx["mgr"] = start_manager("updater"); up()
+        j = status()
+        harness.check("update (restart): the time of the last check and the switched-off setting survive", j.get("last_check") == first and j.get("enabled") is False, j)
+        api("POST", "/api/config", {"update_check": True})
+        for _ in range(3):
+            status(); time.sleep(0.3)
+        j = status()
+        harness.check("update (limit): switched on again, an answer under a day old is not asked again", j.get("last_check") == first and j.get("enabled") is True and Catalog.hits.get("/latest") == 1 and j.get("state") == "idle", (Catalog.hits, j))
+
+        # more than a day later the next status request starts a check
+        kill_all()
+        open(state_file, "w").write("last_check=%d\nlast_result=latest\n" % (first - 2 * 86400))
+        ctx["mgr"] = start_manager("updater"); up()
+        status()
+        r = wait(lambda: Catalog.hits.get("/latest", 0) == 2 and status().get("state") == "idle", 10, 0.3)
+        harness.check("update (limit): more than a day later the first status request checks again and the time moves on", r and status().get("last_check", 0) >= first, (Catalog.hits, status()))
+    finally:
+        finish(ctx)
+
+
 if __name__ == "__main__":
     harness.SYS_HELPER = False
     run_case("/data/pldmgr/payloads/Transmission", None, 19021)
     run_case("/data/pldmgr/payloads/local/transmission", "local", 19022)
     run_bad_sha("/data/pldmgr/payloads/Transmission", 19023)
     run_no_update("/data/pldmgr/payloads/Transmission", 19024)
+    run_setting("/data/pldmgr/payloads/Transmission", 19025)
     sys.exit(harness.summary())

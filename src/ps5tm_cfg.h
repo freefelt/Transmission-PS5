@@ -49,6 +49,7 @@ struct Ps5tmConfig
     std::atomic<int> logs_keep_days{ 2 }; // how many days to keep debug logs (logs/)
     std::atomic<bool> restart_default_migrated{ false }; // the old default (15 s) for waiting for the daemon response was replaced by 120 s
     std::atomic<bool> folders_migrated{ false }; // download path from the Transmission settings has already been migrated to the "download folders" list
+    std::atomic<bool> update_check{ true }; // ask GitHub for a new release by itself (at most once a day); the "Check now" button works either way
     std::atomic<bool> keep_awake{ false }; // while downloads are running, keep the console from sleeping on its own timer (via the helper)
     std::atomic<int> sleep_method{ 0 }; // how to enter rest mode: 0 system request via the helper (sceSystemServiceRequestPowerOff), 1 direct (system state flag)
     std::atomic<int> autosleep_action{ 0 }; // action when all downloads finish: 0 enter rest mode, 1 power off the console

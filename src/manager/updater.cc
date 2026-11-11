@@ -17,6 +17,7 @@
 #include <chrono>
 #include <climits>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <dirent.h>
@@ -49,6 +50,8 @@ constexpr char const* AutoloadFile = "/data/pldmgr/autoload.txt";
 constexpr std::size_t MaxElf = 64u << 20;
 constexpr std::chrono::seconds CheckEvery{ 24 * 60 * 60 }; // an automatic check at most once a day
 constexpr std::chrono::seconds CheckRetry{ 15 * 60 };      // ... but sooner again when GitHub could not be reached
+constexpr std::chrono::seconds NoWait{ 0 };
+constexpr char const* StateFile = "/data/Transmission/update_state.txt"; // last_check=<epoch seconds> and last_result=<word> of the last finished check
 constexpr int MaxScanDepth = 3;
 
 static std::string env_or(char const* name, char const* fallback)
@@ -107,6 +110,10 @@ static Phase g_phase = Phase::Idle;
 static std::chrono::steady_clock::time_point g_next_check{}; // no automatic check before this moment
 static bool g_restarting = false;
 static std::string g_restart_error;
+static std::time_t g_last_check = 0;   // when the last check ended (epoch seconds, 0 = never): kept in StateFile
+static std::string g_last_result;      // how it ended: latest, available, notfound (the running file is not known) or failed
+static bool g_state_loaded = false;
+static std::string record_locked(char const* result); // g_mu held: remembers when and how the check ended, returns the text for StateFile
 static std::string g_current;
 static std::string g_latest;
 static std::string g_changelog;
@@ -141,14 +148,21 @@ static void set_error(std::string const& text)
     shim_log("update: %s", text.c_str());
 }
 
-// The check ended with nothing to offer: back to Idle. The next automatic check comes after `wait`.
-static void set_none(std::chrono::seconds wait)
+static bool atomic_write(std::string const& path, std::string const& data);
+
+// The check ended with nothing to offer: back to Idle. `result` says why; after a failure the next automatic check comes after `retry`.
+static void set_none(char const* result, std::chrono::seconds retry)
 {
-    std::lock_guard<std::mutex> lock{ g_mu };
-    g_phase = Phase::Idle;
-    g_next_check = std::chrono::steady_clock::now() + wait;
-    g_done = 0;
-    g_total = 0;
+    std::string saved;
+    {
+        std::lock_guard<std::mutex> lock{ g_mu };
+        g_phase = Phase::Idle;
+        g_next_check = std::chrono::steady_clock::now() + retry;
+        g_done = 0;
+        g_total = 0;
+        saved = record_locked(result);
+    }
+    atomic_write(StateFile, saved); // the disk is not touched while the lock is held
 }
 
 // The restart did not work: the update stays Ready (it is installed), the reason is shown and the button works again.
@@ -500,6 +514,75 @@ static bool regular_elf(std::string& path)
     }
     path = resolved;
     return true;
+}
+
+// ---------------------------------------------------------------- when was the last check
+
+static bool known_result(std::string const& word)
+{
+    return word == "latest" || word == "available" || word == "notfound" || word == "failed";
+}
+
+static void load_state_locked()
+{
+    if (g_state_loaded)
+    {
+        return;
+    }
+    g_state_loaded = true;
+    std::string text;
+    if (!read_file(StateFile, text))
+    {
+        return;
+    }
+    std::size_t pos = 0;
+    while (pos < text.size())
+    {
+        std::size_t end = text.find('\n', pos);
+        if (end == std::string::npos)
+        {
+            end = text.size();
+        }
+        std::string const line = text.substr(pos, end - pos);
+        pos = end + 1;
+        if (line.compare(0, 11, "last_check=") == 0)
+        {
+            long long const value = std::strtoll(line.c_str() + 11, nullptr, 10); // strtoll is allowed on the PS5, atoll is not
+            g_last_check = value > 0 ? static_cast<std::time_t>(value) : 0;
+        }
+        else if (line.compare(0, 12, "last_result=") == 0 && known_result(line.substr(12)))
+        {
+            g_last_result = line.substr(12);
+        }
+    }
+}
+
+static std::string record_locked(char const* result)
+{
+    load_state_locked();
+    g_last_check = std::time(nullptr);
+    g_last_result = result;
+    return "last_check=" + std::to_string(static_cast<long long>(g_last_check)) + "\nlast_result=" + g_last_result + "\n";
+}
+
+// An automatic check is due when the retry delay of this run has passed and the last answer is old enough.
+static bool check_due_locked()
+{
+    load_state_locked();
+    if (std::chrono::steady_clock::now() < g_next_check)
+    {
+        return false;
+    }
+    std::time_t const now = std::time(nullptr);
+    if (g_last_check == 0 || now < g_last_check)
+    {
+        return true; // never checked, or the clock was set back
+    }
+    if (g_last_result == "failed" || g_last_result == "available")
+    {
+        return true; // not a settled answer (an offer is forgotten when the manager restarts)
+    }
+    return now - g_last_check >= std::chrono::duration_cast<std::chrono::seconds>(CheckEvery).count();
 }
 
 // ---------------------------------------------------------------- JSON (small)
@@ -1104,7 +1187,7 @@ static void check_thread()
     }
     if (debug_version(current))
     {
-        set_none(CheckEvery);
+        set_none("latest", NoWait);
         return;
     }
     std::string body;
@@ -1113,14 +1196,14 @@ static void check_thread()
     if (!http_get(api_url(), body, status, error) || status != 200)
     {
         shim_log("update: latest release: %s (HTTP %ld)", error.c_str(), status);
-        set_none(CheckRetry);
+        set_none("failed", CheckRetry);
         return;
     }
     std::string const tag = json_field(body, "tag_name");
     if (tag.empty() || !newer(tag, current))
     {
         shim_log("update: no newer release (tag %s)", tag.c_str());
-        set_none(CheckEvery);
+        set_none("latest", NoWait);
         return;
     }
     std::string latest = tag;
@@ -1133,17 +1216,25 @@ static void check_thread()
     if (!fetch_sha(current, old_sha, old_missing) || old_missing || old_sha.empty())
     {
         shim_log("update: no usable .sha256 for %s (404=%d)", current.c_str(), old_missing ? 1 : 0);
-        set_none(old_missing ? CheckEvery : CheckRetry);
+        if (old_missing)
+        {
+            set_none("notfound", NoWait);
+        }
+        else
+        {
+            set_none("failed", CheckRetry);
+        }
         return;
     }
     std::string self;
     if (!find_in_history(old_sha, self) && !scan_for_self(old_sha, self))
     {
         shim_log("update: the running file was not found");
-        set_none(CheckEvery);
+        set_none("notfound", NoWait);
         return;
     }
     shim_log("update: found %s", self.c_str());
+    std::string saved;
     {
         std::lock_guard<std::mutex> lock{ g_mu };
         g_current = current;
@@ -1153,7 +1244,9 @@ static void check_thread()
         g_old_sha = old_sha;
         g_phase = Phase::Available;
         g_error.clear();
+        saved = record_locked("available");
     }
+    atomic_write(StateFile, saved);
 }
 
 static void download_thread()
@@ -1284,7 +1377,7 @@ std::string updater_status_json()
     bool start = false;
     {
         std::lock_guard<std::mutex> lock{ g_mu };
-        if (g_phase == Phase::Idle && std::chrono::steady_clock::now() >= g_next_check && !updates_disabled() && !debug_version(ps5tm_version()))
+        if (g_phase == Phase::Idle && g_cfg.update_check.load() && !updates_disabled() && !debug_version(ps5tm_version()) && check_due_locked())
         {
             shim_log("update: check requested");
             g_phase = Phase::Checking; // so that the page keeps asking while the check runs
@@ -1296,6 +1389,7 @@ std::string updater_status_json()
         std::thread(check_thread).detach();
     }
     std::lock_guard<std::mutex> lock{ g_mu };
+    load_state_locked();
     long long const percent = g_total > 0 ? std::min<long long>(100, g_done * 100 / g_total) : 0;
     std::string json = "{";
     json += "\"state\":" + jstr(phase_name(g_phase));
@@ -1308,6 +1402,9 @@ std::string updater_status_json()
     json += ",\"error\":" + jstr(g_error);
     json += ",\"can_update\":" + jbool(g_phase == Phase::Available);
     json += ",\"target\":" + jstr(g_target);
+    json += ",\"enabled\":" + jbool(g_cfg.update_check.load());
+    json += ",\"last_check\":" + std::to_string(static_cast<long long>(g_last_check));
+    json += ",\"last_result\":" + jstr(g_last_result);
     json += ",\"restarting\":" + jbool(g_restarting);
     json += ",\"restart_error\":" + jstr(g_restart_error);
     return json + "}";

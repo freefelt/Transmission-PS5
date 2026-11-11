@@ -44,6 +44,7 @@ std::string current_value(std::string const& key)
     if (key == "autosleep_action") return jstr(ps5tm_autosleep_action_name(g_cfg.autosleep_action.load()));
     if (key == "sleep_method") return jstr(ps5tm_sleep_method_name(g_cfg.sleep_method.load()));
     if (key == "keep_awake") return jbool(g_cfg.keep_awake);
+    if (key == "update_check") return jbool(g_cfg.update_check);
     if (key == "language")
     {
         std::string shown = ps5tm_language().empty() ? lang_default() : ps5tm_language();

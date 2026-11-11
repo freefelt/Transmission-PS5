@@ -6,7 +6,7 @@ const open = async () => { const errors = []; const dom = await JSDOM.fromURL("h
 (async () => {
   let { dom, d, errors, $, ev } = await open();
   if (phase === "A") {
-    check("no JS errors; 8 notification fields; the sleep box holds 4 settings (notification, delay, time limit, keep awake) and selects for the action and the method", errors.length === 0 && d.querySelectorAll("#form input").length === 9 && d.querySelectorAll("#asBox #sleepForm input").length === 4, errors.join(";"));
+    check("no JS errors; 8 notification fields and the Updates checkbox (9 inputs + 1); the sleep box holds 4 settings (notification, delay, time limit, keep awake) and selects for the action and the method", errors.length === 0 && d.querySelectorAll("#form input").length === 10 && d.querySelectorAll("#asBox #sleepForm input").length === 4, errors.join(";"));
     check("not activated: the checkbox is clear and the box is hidden; the checkbox is usable", $("asArm").checked === false && $("asBox").style.display === "none" && $("asArm").disabled === false);
     check("there are no separate Save/Reset buttons in the sleep box any more", !$("sleepSave") && !$("sleepReset") && !d.querySelector("#asBox #sleepSave"));
     $("asArm").checked = true; ev($("asArm"), "change"); await wait(200);

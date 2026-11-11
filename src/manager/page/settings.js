@@ -20,7 +20,10 @@ var SCHEMA=[
  {k:'web_openfolder',t:'sel',l:'“Open folder” item',d:'Opens the folder of a torrent in a file manager from its menu.',m:['The item appears in the torrent context menu (right click or long press) on the Transmission page and opens the folder of that torrent in BFpilot (port 5905) or PS5 Web File Manager (port 8888).','In a desktop browser the page opens in a new tab, on the console in the same window.'],o:[['off','Do not show'],['bfpilot','BFpilot'],['webfm','PS5 Web File Manager']]},
  {k:'web_diskbar',t:'sel',l:'Show disk status',d:'A panel above the download list.',m:['“Show used”: disks that hold torrents and downloads. “Show active”: only disks that have running (not stopped) torrents.'],o:[['off','Do not show'],['all','Show used'],['active','Show active']]},
  {k:'web_icons',t:'sel',l:'Icons',d:'Toolbar buttons, menus and torrent icons.',o:[['color','Color'],['mono','Monochrome']]},
- {k:'web_theme',t:'sel',l:'Theme',o:[['dark','Dark'],['light','Light']]}
+ {k:'web_theme',t:'sel',l:'Theme',o:[['dark','Dark'],['light','Light']]},
+ {h:'Updates'},
+ {k:'update_check',t:'bool',l:'Check for updates automatically',d:'Looks for a new version on GitHub at most once a day. Off: only the “Check now” button looks.'},
+ {u:1}
 ];
 var EXPERT_SCHEMA=[
  {h:'Ports'},
@@ -55,6 +58,9 @@ function api(path,body,cb,timeout){var x=new XMLHttpRequest();x.open(body?'POST'
 function buildFields(f,schema,c,pre){f.innerHTML='';
  schema.forEach(function(s){
   if(s.h){var h=document.createElement('div');h.className='help';h.style.cssText='margin:10px 0 2px;font-weight:600;color:#8fb7ff';h.textContent=s.h;f.appendChild(h);return}
+  if(s.u){var ur=document.createElement('div');ur.className='row';ur.id=pre+'row_update_now';var ul=document.createElement('label');ul.textContent='Last check';
+   var us=document.createElement('span');us.className='help';us.id='updLast';ul.appendChild(us);var ub=document.createElement('button');ub.type='button';ub.id='updNow';ub.className='alt';ub.textContent='Check now';
+   ur.appendChild(ul);ur.appendChild(ub);f.appendChild(ur);return}
   var r=document.createElement('div');r.className='row';r.id=pre+'row_'+s.k;var l=document.createElement('label');l.setAttribute('for',pre+s.k);l.textContent=s.l;
   if(s.m)helpBtn(l,s.l,s.m);
   if(s.d){var d=document.createElement('span');d.className='help';d.textContent=s.d;l.appendChild(d)}
@@ -124,7 +130,7 @@ function refreshButtons(){if(!formBuilt)return;var m=dirtyCount(ALL,'f_')+dirtyC
 function resetSchema(schema,pre){schema.forEach(function(s){if(!s.k)return;var e=$(pre+s.k);if(s.t==='bool')e.checked=!!orig[s.k];else e.value=orig[s.k]});sleepDeps();diskDeps();diskClamp();refreshButtons()}
 function buildForm(c){buildFields($('form'),SCHEMA,c,'f_');buildFields($('expertForm'),EXPERT_SCHEMA,c,'f_');buildFields($('sleepForm'),SLEEP_SCHEMA,c,'sf_');
  $('sf_sleep_notify_before').addEventListener('change',sleepDeps);sleepDeps();
- $('f_notify_low_disk_space').addEventListener('change',diskDeps);diskDeps();diskClampInit();formBuilt=true;refreshButtons()}
+ $('f_notify_low_disk_space').addEventListener('change',diskDeps);diskDeps();diskClampInit();$('updNow').onclick=updNowClick;if(updLastJ)updInfo(updLastJ);formBuilt=true;refreshButtons()}
 function saveAll(){var ch={},n=0;[[ALL,'f_'],[SLEEP_SCHEMA,'sf_']].forEach(function(p){p[0].forEach(function(s){if(!s.k)return;var v=valOf(s,p[1]);if(v!==orig[s.k]){ch[s.k]=v;n++}})});
  if(!n)return;var m=$('saveMsg');
  api('/api/config',ch,function(c,j){if(c===200&&j&&j.ok){m.className='msg';var t=j.saved?'Saved':'Applied, but config.cfg was not written';
@@ -169,8 +175,8 @@ function ssRender(st){var ss=st&&st.syssvc,e=$('ssState');if(!ss){e.textContent=
 if(ss.hung){e.textContent='hung: '+ss.error;return}if(ss.disabled){e.textContent='off: '+ss.error;return}
 if(!ss.ready){e.textContent='loading or not available'+(ss.error?': '+ss.error:'');return}
 e.textContent='running; game: '+(ss.game_state==='none'?'None':ss.game_state==='on_screen'?'on screen':ss.game_state==='minimised'?'running but minimised':'Launched')+(ss.title?' ('+ss.title+')':'')+'; console language: '+(ss.system_lang<0?'Unknown':(ss.system_lang===8?'Russian':'code '+ss.system_lang))+'; keep awake: '+(ss.keepawake?'On':'Off')}
-/* A newer release: the browser (not the console) asks GitHub once in a few hours, only to show a link next to the version. Nothing is sent from the console, nothing is
-   installed. Automated browsers (jsdom, headless Chrome) do not ask unless a test sets window.PS5_UPDATE_URL. */
+/* A newer release: the browser asks GitHub once in a few hours, only to show a link next to the version (the manager has its own check, below, that can install).
+   It runs only while "Check for updates automatically" is on (render() starts it). Automated browsers (jsdom, headless Chrome) do not ask unless a test sets window.PS5_UPDATE_URL. */
 var UPD_URL=window.PS5_UPDATE_URL||'https://api.github.com/repos/freefelt/transmission_ps5/releases/latest',UPD_PAGE='https://github.com/freefelt/Transmission-PS5/releases/latest',updTag='';
 function verParts(v){return String(v).replace(/^v/i,'').split('.').map(function(x){return parseInt(x,10)||0})}
 function verNewer(a,b){var x=verParts(a),y=verParts(b);for(var i=0;i<Math.max(x.length,y.length);i++){var p=x[i]||0,q=y[i]||0;if(p!==q)return p>q}return false}
@@ -187,7 +193,22 @@ function topRender(s){var upd=updTag&&verNewer(updTag,s.version)?updTag:'',key=s
 /* Release update: the manager checks GitHub (at most once a day), finds the file PLDMGR launched and downloads the new ELF.
    The page only shows the state and asks the manager to start, retry or restart. An old error is not shown on a fresh page:
    the failure dialog opens only after the user pressed a button of this dialog (updUser). */
-var updTimer=null,updOpen=false,updUser=false;
+var updTimer=null,updOpen=false,updUser=false,updLastJ=null;
+var UPD_RESULTS={latest:'Up to date',available:'Update available',notfound:'The running file was not found',failed:'Check failed'};
+/* The "Last check" row of the Settings card: when the manager last asked GitHub and how it ended; the button asks at once (the daily limit applies to the automatic check only) */
+function updInfo(j){var e=$('updLast'),b=$('updNow');if(!e||!b)return;
+ b.disabled=j.state==='checking'||j.state==='downloading';var t;
+ if(j.state==='checking')t='Checking…';
+ else if(j.state==='downloading')t='Downloading the update…';
+ else if(j.state==='ready')t='The update is ready. Restart to apply it.';
+ else if(j.last_check>0)t=new Date(j.last_check*1000).toLocaleString()+(UPD_RESULTS[j.last_result]?' · '+UPD_RESULTS[j.last_result]:'');
+ else t='Not checked yet';
+ e.textContent=t}
+function updNowClick(){
+ api('/api/update',{action:'check'},function(c,j){
+  if(c!==200||!j){$('updLast').textContent='Could not check for updates';return}
+  if(!j.ok){$('updLast').textContent=j.message||'Could not check for updates';updPoll();return}
+  $('updNow').disabled=true;$('updLast').textContent='Checking…';updTimer=setTimeout(updPoll,500)})}
 function updButtons(update,restart,retry){$('updGo').style.display=update?'inline-block':'none';$('updRestart').style.display=restart?'inline-block':'none';$('updRetry').style.display=retry?'inline-block':'none'}
 function updShow(j){
  if(!updOpen){updOpen=true;popOpen($('updModal'),'flex')}
@@ -199,6 +220,7 @@ function updShow(j){
 function updPoll(){
  api('/api/update',null,function(c,j){
   if(c!==200||!j){updTimer=setTimeout(updPoll,5000);return}
+  updLastJ=j;updInfo(j);
   if(j.state==='checking'){updTimer=setTimeout(updPoll,1500);return}
   if(j.state==='available'){updShow(j);return}
   if(j.state==='downloading'){
@@ -238,8 +260,8 @@ $('updRestart').onclick=function(){var btn=this;btn.disabled=true;updUser=true; 
    },3000)
   })()})};
 setTimeout(updPoll,2500);
-updCheck(); // after the definitions above: it reads UPD_URL
-function render(s){state=s;ssRender(s.stats);pwRender(s.stats);$('fdCard').classList.toggle('fd-mono',s.config.web_icons==='mono');$('fdCard').classList.toggle('fd-open-on',s.config.web_openfolder==='bfpilot'||s.config.web_openfolder==='webfm');if(!formBuilt)buildForm(s.config);dmRender(s.daemon);notifState(s.notif_latest); var tr='http://'+location.hostname+':'+s.rpc_port+'/';
+var updChecked=false; // the browser-side check starts from render(), when the settings are known
+function render(s){state=s;if(!updChecked){updChecked=true;if(s.config.update_check)updCheck()}ssRender(s.stats);pwRender(s.stats);$('fdCard').classList.toggle('fd-mono',s.config.web_icons==='mono');$('fdCard').classList.toggle('fd-open-on',s.config.web_openfolder==='bfpilot'||s.config.web_openfolder==='webfm');if(!formBuilt)buildForm(s.config);dmRender(s.daemon);notifState(s.notif_latest); var tr='http://'+location.hostname+':'+s.rpc_port+'/';
  topRender(s);$('bdState').textContent='SDK '+s.sdk+' · built '+s.built;
  $('trLink').href=tr;if(/PlayStation/i.test(navigator.userAgent||''))$('trLink').removeAttribute('target');else $('trLink').target='ps5tm-transmission-web'; /* a named tab: the next click goes to the same tab instead of opening a new one (no noopener: it would always open a new one) */
  var st=s.stats,t='',run=s.daemon.state==='running';

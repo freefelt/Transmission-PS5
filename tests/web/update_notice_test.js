@@ -21,5 +21,11 @@ let pass = 0, fail = 0; const check = (n, ok, e) => { (ok ? pass++ : fail++); co
   check("an older release (for example the one that is newer on the console): no link", !older.a, JSON.stringify(older));
   const junk = await show({ status: 200, body: "not json at all" }), bad = await show({ status: 500, body: "{}" }), weird = await show({ status: 200, body: JSON.stringify({ tag_name: "<b>9.9</b>" }) });
   check("garbage, a server error and a tag that is not a version: no link and no error on the page", !junk.a && !bad.a && !weird.a && /^Версия/.test(junk.text), JSON.stringify([junk, bad, weird]));
+  // the setting "Check for updates automatically": off = the browser does not ask GitHub either
+  const setCfg = (v) => new Promise((res) => { const d = JSON.stringify({ update_check: v }), q = http.request({ host: "127.0.0.1", port: 9092, path: "/api/config", method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(d) } }, (r) => { r.resume(); r.on("end", () => res(r.statusCode)); }); q.write(d); q.end(); });
+  await setCfg(false); const askedBefore = asked, off = await show({ status: 200, body: JSON.stringify({ tag_name: bump(1) }) }); await setCfg(true);
+  check("with 'Проверять обновления автоматически' switched off the browser does not ask GitHub and shows no link", asked === askedBefore && !off.a, JSON.stringify({ asked, askedBefore, off }));
+  const on = await show({ status: 200, body: JSON.stringify({ tag_name: bump(1) }) });
+  check("switched on again: it asks and shows the link", !!on.a, JSON.stringify(on));
   srv.close(); console.log(`\n${pass}/${pass + fail} update notice checks passed`); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.log("crashed", e); process.exit(2); });

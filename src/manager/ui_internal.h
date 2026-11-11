@@ -125,6 +125,7 @@ inline constexpr KeyInfo Keys[] = {
     { "autosleep_action", true },
     { "sleep_method", true },
     { "keep_awake", true },
+    { "update_check", true },
     { "language", true },
     { "web_icons", true },
     { "sleep_warnings_hidden", true },
