@@ -361,6 +361,8 @@
 "update" = "Update"
 "later" = "Later"
 "try_again" = "Try again"
+"updating" = "Updating…"
+"restart_to_update_to" = "restart to update to"
 "updates" = "Updates"
 "check_for_updates_automatically" = "Check for updates automatically"
 "looks_for_a_new_version_on" = "Looks for a new version on GitHub at most once a day. Off: only the “Check now” button looks."

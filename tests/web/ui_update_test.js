@@ -1,8 +1,11 @@
-// The release update dialog: the manager's /api/update is stubbed, the page must show the version and the release link,
-// start the download, show progress and then offer Restart; an old error is not shown on a fresh page, a failed download
-// offers "Try again", Restart is pressed once and a failed restart shows its reason and works again. Real Chrome, real settings page.
+// The release update on the settings page: the manager's /api/update is stubbed. The dialog never opens by itself: it opens from the link "доступно обновление N"
+// in the header or from the same words in the "Last check" row of the Settings card; it is green; the offer shows the version and "What's new", the progress and
+// "ready" views do not; an old error is not shown on a fresh page, a failed download offers "Try again"; once the update is ready the header link ("перезапустить
+// для обновления до N") and the row button ("Перезапустить") open the dialog, Restart is pressed there once and a failed restart shows its reason and works again.
+// With nothing to install there is no link in the header (the page does not ask GitHub itself).
+// Real Chrome, real settings page.
 const puppeteer = require("puppeteer-core");
-let pass = 0, fail = 0; const check = (n, ok, e) => { (ok ? pass++ : fail++); console.log((ok ? "PASS " : "FAIL ") + n + (e !== undefined ? "  -> " + String(e).slice(0, 300) : "")); };
+let pass = 0, fail = 0; const check = (n, ok, e) => { (ok ? pass++ : fail++); console.log((ok ? "PASS " : "FAIL ") + n + (e !== undefined ? "  -> " + String(e).slice(0, 320) : "")); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const browser = await puppeteer.launch({ executablePath: require("./chrome"), args: ["--no-sandbox", "--disable-gpu"], headless: "new" });
@@ -25,22 +28,42 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       r.respond({ status: 200, contentType: "application/json", body: '{"ok":true}' });
     } else r.continue();
   });
-  const dlg = () => page.evaluate(() => { const d = (id) => getComputedStyle(document.getElementById(id)).display; return { modal: d("updModal"), title: document.getElementById("updTitle").textContent, status: document.getElementById("updStatus").textContent, go: d("updGo"), retry: d("updRetry"), restart: d("updRestart"), restartOff: document.getElementById("updRestart").disabled, progress: d("updProgressRow"), width: document.getElementById("updBar").style.width, ver: document.getElementById("updVer").textContent, notes: document.getElementById("updNotes").textContent, href: document.getElementById("updNotes").href }; });
+  const dlg = () => page.evaluate(() => { const d = (id) => getComputedStyle(document.getElementById(id)).display, el = (id) => document.getElementById(id) || { textContent: "", className: "", disabled: false };
+    return { modal: d("updModal"), title: el("updTitle").textContent, status: el("updStatus").textContent, offer: d("updOffer"), go: d("updGo"), retry: d("updRetry"), restart: d("updRestart"), restartOff: el("updRestart").disabled,
+             progress: d("updProgressRow"), width: el("updBar").style.width, ver: el("updVer").textContent, notes: el("updNotes").textContent, href: el("updNotes").href,
+             head: (document.querySelector("#top a") || {}).textContent || "", rowLink: el("updLink").textContent, line: el("updLast").textContent, nowText: el("updNow").textContent, nowClass: el("updNow").className, nowOff: el("updNow").disabled,
+             border: getComputedStyle(document.querySelector("#updModal .modal-card")).borderTopColor, titleColor: getComputedStyle(document.getElementById("updTitle")).color }; });
   const load = async () => { await page.goto("http://127.0.0.1:9092/", { waitUntil: "networkidle2" }); await sleep(3600); };
 
-  // ---- a newer release: offer, download with progress, ready
+  // ---- a newer release: no dialog by itself, two links, the offer, the progress, "ready"
   await load();
+  const quiet = await dlg();
+  check("a newer release does NOT open the dialog by itself; the header has the link 'доступно обновление 0.5' and the 'Last check' row has the link 'Доступно обновление 0.5'", quiet.modal === "none" && quiet.head === "доступно обновление 0.5" && quiet.rowLink === "Доступно обновление 0.5", JSON.stringify(quiet));
+  await page.click("#top a"); await sleep(500);
   const offer = await dlg();
-  check("a newer release opens the dialog with its version, the release link and Update", offer.modal === "flex" && offer.title === "Доступно обновление" && offer.ver === "0.5" && offer.notes === "Что нового" && /\/tag\/0\.5$/.test(offer.href) && offer.go !== "none" && offer.restart === "none" && offer.retry === "none", JSON.stringify(offer));
-  await page.click("#updGo"); await sleep(900);
-  const progress = await dlg();
-  check("Update starts the download: progress is visible and Update is hidden", progress.progress !== "none" && progress.width === "42%" && /Скачивание обновления/.test(progress.status) && progress.go === "none", JSON.stringify(progress));
-  state = "ready"; await sleep(1200);
-  const ready = await dlg();
-  check("when the download is ready the dialog offers Restart and hides the progress", ready.title === "Обновление готово" && /Перезапустите/.test(ready.status) && ready.restart !== "none" && ready.progress === "none", JSON.stringify(ready));
-  check("the page made more than one status request and has no JS errors", asked >= 2 && errors.length === 0, JSON.stringify({ asked, errors }));
+  check("the header link opens the offer: title, 'Доступна новая версия: 0.5', 'Что нового' with the release link, Update, no Restart", offer.modal === "flex" && offer.title === "Доступно обновление" && offer.offer !== "none" && offer.ver === "0.5" && offer.notes === "Что нового" && /\/tag\/0\.5$/.test(offer.href) && offer.go !== "none" && offer.restart === "none" && offer.retry === "none" && offer.progress === "none", JSON.stringify(offer));
+  const rgb = (c) => (c.match(/\d+/g) || []).map(Number);
+  check("the dialog is green, not red (border and title)", (() => { const b = rgb(offer.border), t = rgb(offer.titleColor); return b[1] > b[0] && b[1] > b[2] && t[1] > t[0] && t[1] > t[2]; })(), JSON.stringify({ border: offer.border, title: offer.titleColor }));
   await page.click("#updLater"); await sleep(300);
   check("Later closes the dialog", (await dlg()).modal === "none");
+  await page.evaluate(() => document.getElementById("updLink").click()); await sleep(400);
+  check("the link in the row opens it again", (await dlg()).modal === "flex");
+  await page.click("#updGo"); await sleep(900);
+  const progress = await dlg();
+  check("Update: the title is 'Обновляю…', the version and 'Что нового' are gone, the progress and its text are shown, only Later is left", progress.title === "Обновляю…" && progress.offer === "none" && progress.progress !== "none" && progress.width === "42%" && /Скачивание обновления/.test(progress.status) && progress.go === "none" && progress.restart === "none", JSON.stringify(progress));
+  await page.click("#updLater"); state = "downloading"; await sleep(1500);
+  check("closed during the download, the dialog does not come back by itself", (await dlg()).modal === "none");
+  state = "ready"; await sleep(1800);
+  const closedReady = await dlg();
+  check("when the update is ready the dialog still stays closed, the header link becomes 'перезапустить для обновления до 0.5' and the row button the blue 'Перезапустить' (no 'alt' class)", closedReady.modal === "none" && closedReady.head === "перезапустить для обновления до 0.5" && closedReady.nowText === "Перезапустить" && !/\balt\b/.test(closedReady.nowClass) && /Перезапустите/.test(closedReady.line), JSON.stringify(closedReady));
+
+  // ---- the dialog kept open while the download ends turns into "ready"
+  state = "available"; await load();
+  await page.click("#top a"); await sleep(400); await page.click("#updGo"); await sleep(900); state = "ready"; await sleep(1500);
+  const ready = await dlg();
+  check("kept open, the dialog turns into 'Обновление готово' without the version and 'Что нового', with Restart", ready.modal === "flex" && ready.title === "Обновление готово" && ready.offer === "none" && ready.progress === "none" && /Перезапустите/.test(ready.status) && ready.restart !== "none" && ready.go === "none", JSON.stringify(ready));
+  check("the page made more than one status request and has no JS errors", asked >= 2 && errors.length === 0, JSON.stringify({ asked, errors }));
+  await page.click("#updLater"); await sleep(300);
 
   // ---- an old error from an earlier attempt is not shown on a fresh page
   state = "error"; await load();
@@ -49,42 +72,55 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // ---- a failed download: the reason and "Try again", which asks for a new check and returns to the offer
   state = "available"; failDownload = true; posts.length = 0; await load();
-  await page.click("#updGo"); await sleep(1300);
+  await page.click("#top a"); await sleep(400); await page.click("#updGo"); await sleep(1300);
   const failed = await dlg();
-  check("a failed download opens 'Не удалось обновить' with its reason and a Try again button (no Update, no Restart)", failed.modal === "flex" && failed.title === "Не удалось обновить" && /boom/.test(failed.status) && failed.retry !== "none" && failed.go === "none" && failed.restart === "none", JSON.stringify(failed));
+  check("a failed download shows 'Не удалось обновить' with its reason and a Try again button (no Update, no Restart)", failed.modal === "flex" && failed.title === "Не удалось обновить" && /boom/.test(failed.status) && failed.retry !== "none" && failed.go === "none" && failed.restart === "none", JSON.stringify(failed));
   await page.click("#updRetry"); await sleep(2200);
   const again = await dlg();
-  check("Try again asks the manager for a new check, and the dialog offers the update again", posts.includes("check") && again.modal === "flex" && again.title === "Доступно обновление" && again.go !== "none" && again.retry === "none", JSON.stringify({ posts, again }));
+  check("Try again asks the manager for a new check, and the dialog offers the update again", posts.includes("check") && again.modal === "flex" && again.title === "Доступно обновление" && again.offer !== "none" && again.go !== "none" && again.retry === "none", JSON.stringify({ posts, again }));
   failDownload = false;
 
-  // ---- Restart: one press sends one request, a failed restart shows its reason and the button works again
+  // ---- Restart: the header link and the row button only open the dialog; Restart is pressed there (two quick presses send one request, a failure shows its reason)
   state = "ready"; restartError = ""; posts.length = 0; await load();
+  const rd = await dlg();
+  check("with a ready update the page opens without the dialog; the header link says 'перезапустить для обновления до 0.5' and the row button 'Перезапустить'", rd.modal === "none" && rd.head === "перезапустить для обновления до 0.5" && rd.nowText === "Перезапустить", JSON.stringify(rd));
+  await page.click("#top a"); await sleep(500);
+  const opened = await dlg();
+  check("the header link does NOT restart: it opens 'Обновление готово' with the Restart button, and nothing is sent", opened.modal === "flex" && opened.title === "Обновление готово" && opened.restart !== "none" && posts.length === 0, JSON.stringify({ opened, posts }));
   await page.evaluate(() => { const b = document.getElementById("updRestart"); b.click(); b.click(); });
   await sleep(2600);
   const failedRestart = await dlg();
-  check("two quick presses of Restart send one request", posts.filter((a) => a === "restart").length === 1, JSON.stringify(posts));
-  check("a failed restart shows the real reason (not 'timed out') and the button is enabled again", failedRestart.status === "the ELF loader is not listening" && failedRestart.restart !== "none" && failedRestart.restartOff === false, JSON.stringify(failedRestart));
+  check("two quick presses of Restart in the dialog send one restart request", posts.filter((a) => a === "restart").length === 1, JSON.stringify(posts));
+  check("a failed restart shows the real reason (not 'timed out') in the dialog and in the row, the header link is back and the buttons work again", failedRestart.modal === "flex" && failedRestart.status === "the ELF loader is not listening" && failedRestart.line === "the ELF loader is not listening" && failedRestart.head === "перезапустить для обновления до 0.5" && failedRestart.restartOff === false && failedRestart.nowOff === false, JSON.stringify(failedRestart));
   await page.click("#updRestart"); await sleep(1500);
-  check("pressing Restart again sends a new request", posts.filter((a) => a === "restart").length === 2, JSON.stringify(posts));
+  check("Restart in the dialog sends a new request", posts.filter((a) => a === "restart").length === 2, JSON.stringify(posts));
+  await page.click("#updLater"); await sleep(300);
+  await page.evaluate(() => document.getElementById("updNow").click()); await sleep(600);
+  check("the row button 'Перезапустить' does not restart either: it opens the dialog", (await dlg()).modal === "flex" && posts.filter((a) => a === "restart").length === 2, JSON.stringify(posts));
   check("no JS errors in the failure paths", errors.length === 0, errors.join(";"));
+  await page.click("#updLater"); await sleep(300);
 
   // ---- the Updates group of the Settings card: the checkbox, the "Last check" line and the Check now button
   stepped = true; state = "idle"; lastCheck = 0; lastResult = ""; nextState = "idle"; nextResult = "failed"; posts.length = 0; await load();
   const row = () => page.evaluate(() => ({ line: document.getElementById("updLast").textContent, off: document.getElementById("updNow").disabled, btn: document.getElementById("updNow").textContent,
     label: document.getElementById("f_row_update_check").querySelector("label").firstChild.textContent, box: document.getElementById("f_update_check").checked, head: [...document.querySelectorAll("#form .help")].some((x) => x.textContent === "Обновления"),
-    modal: getComputedStyle(document.getElementById("updModal")).display, title: document.getElementById("updTitle").textContent }));
+    modal: getComputedStyle(document.getElementById("updModal")).display, rowLink: (document.getElementById("updLink") || {}).textContent || "", top: (document.querySelector("#top a") || {}).textContent || "" }));
   const r0 = await row();
-  check("Settings has 'Обновления': the checkbox 'Проверять обновления автоматически' (on by default), 'Ещё не проверялось' and an enabled 'Проверить сейчас'", r0.head && r0.label === "Проверять обновления автоматически" && r0.box === true && r0.line === "Ещё не проверялось" && r0.btn === "Проверить сейчас" && r0.off === false, JSON.stringify(r0));
+  check("Settings has 'Обновления': the checkbox 'Проверять обновления автоматически' (on by default), 'Ещё не проверялось' and an enabled 'Проверить сейчас'", r0.head && r0.label === "Проверять обновления автоматически" && r0.box === true && r0.line === "Ещё не проверялось" && r0.btn === "Проверить сейчас" && r0.off === false && r0.top === "", JSON.stringify(r0));
   await page.evaluate(() => document.getElementById("updNow").click()); await sleep(400);
   const r1 = await row();
   check("Check now sends a check, shows 'Проверка…' and disables the button meanwhile", posts.includes("check") && r1.line === "Проверка…" && r1.off === true, JSON.stringify({ posts, r1 }));
   await sleep(4300);
   const r2 = await row(), parts = r2.line.split(" · ");
-  check("when the check ends the line says when (a date and time) and how: 'Не удалось проверить'; the button works again", parts.length === 2 && parts[0].length > 6 && parts[1] === "Не удалось проверить" && r2.off === false, JSON.stringify(r2));
+  check("when the check ends the line says when (a date in the language of the page, no seconds) and how: 'Не удалось проверить'; the button works again", parts.length === 2 && /^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/.test(parts[0]) && parts[1] === "Не удалось проверить" && r2.off === false, JSON.stringify(r2));
   nextState = "available"; nextResult = "available"; posts.length = 0;
   await page.evaluate(() => document.getElementById("updNow").click()); await sleep(4800);
   const r3 = await row();
-  check("a check that finds a new version opens the update dialog and the line says 'Доступно обновление'", r3.modal === "flex" && r3.title === "Доступно обновление" && r3.line.split(" · ")[1] === "Доступно обновление", JSON.stringify(r3));
+  check("a check that finds a new version does not open the dialog: the line ends with the link 'Доступно обновление 0.5' and the header gets 'доступно обновление 0.5'", r3.modal === "none" && r3.rowLink === "Доступно обновление 0.5" && r3.line.startsWith(parts[0]) && r3.top === "доступно обновление 0.5", JSON.stringify(r3));
+  // the spacing: a control that is taller than its text (the theme select has no description, the button) keeps the same distance from the line above as the other rows
+  await page.evaluate(() => document.getElementById("accSettingsBtn").click()); await sleep(700);
+  const gaps = await page.evaluate(() => { const g = (row, sel) => { const r = document.getElementById(row), c = r.querySelector(sel); return c.getBoundingClientRect().top - r.getBoundingClientRect().top; }; return { icons: g("f_row_web_icons", "select"), theme: g("f_row_web_theme", "select"), button: g("f_row_update_now", "button") }; });
+  check("the theme select and the Check now button are as far from the line above as the other selects (within 2 px)", gaps.icons > 8 && Math.abs(gaps.theme - gaps.icons) <= 2 && Math.abs(gaps.button - gaps.icons) <= 2, JSON.stringify(gaps));
   check("no JS errors in the Updates row", errors.length === 0, errors.join(";"));
   await browser.close(); console.log(`\n${pass}/${pass + fail} update dialog checks passed`); process.exit(fail ? 1 : 0);
 })().catch((e) => { console.log("crashed", e); process.exit(2); });

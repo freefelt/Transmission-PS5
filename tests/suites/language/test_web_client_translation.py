@@ -3,7 +3,7 @@ import sys, json, time, os, re, base64, hashlib, subprocess, shutil, urllib.requ
 from harness import *
 import harness
 harness.TEST_MSG = None; harness.TEST_LANG = None      # the language is chosen by the setting, as in a real installation
-WEB = "/data/Transmission/transmission/web"; GM = "/data/Transmission/guard_messages.txt"; LD = "/data/Transmission/locales"
+WEB = "/data/Transmission/transmission/web"; GM = "/data/Transmission/transmission/guard_messages.txt"; GM_OLD = "/data/Transmission/guard_messages.txt"; LD = "/data/Transmission/locales"
 TOOLS = REPO
 def meta(name): return base64.b64encode(bencode({"announce": "http://127.0.0.1:1/announce", "info": {"name": name, "length": 65536, "piece length": 65536, "pieces": hashlib.sha1(name.encode()).digest()}})).decode()
 def setcfg(**kw): return api("POST", "/api/config", kw)
@@ -16,7 +16,8 @@ def node(lang):
     m = re.search(r"(\d+)/(\d+) web translation checks passed", r.stdout)
     return r, (int(m.group(1)), int(m.group(2))) if m else (0, 0)
 shutil.rmtree(LD, ignore_errors=True)
-fresh(); loader = Loader(); m = start_manager()
+fresh(); open(GM_OLD, "w").write("stale\n")      # the place of 0.3 and older: the new manager must remove it
+loader = Loader(); m = start_manager()
 try:
     wait(lambda: daemon_pids() and rpc_ok() and dstate()["state"] == "running", 70); time.sleep(4)
     idx = urllib.request.urlopen("http://127.0.0.1:9091/transmission/web/", timeout=5).read().decode()
@@ -30,6 +31,7 @@ try:
     r = refuse("w_one")
     check("RU: the refusal of the daemon is in Russian, with the path put in", "Папки «/mnt/ext1/not_in_list» нет в списке папок загрузок" in r["result"], r["result"][:90])
     gm = open(GM, encoding="utf-8").read()
+    check("the file lives with the other files for the daemon (transmission/), and the old copy in /data/Transmission is gone", os.path.exists(GM) and not os.path.exists(GM_OLD), (os.path.exists(GM), os.path.exists(GM_OLD)))
     check("RU: guard_messages.txt has the lines (English format, a tab, the translation with {1})", "The drive %s is not connected: the torrent was not added.\tДиск {1} не подключён: торрент не добавлен." in gm, gm[:100])
     rr, (ok, tot) = node("ru"); print(rr.stdout.strip().split("\n")[-1])
     check("RU: ps5t, ps5n and the marked index.html work on the real files (jsdom)", tot > 0 and ok == tot, rr.stdout[-500:])

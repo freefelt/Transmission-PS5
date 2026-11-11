@@ -219,7 +219,7 @@ static void curl_setup(CURL* curl, std::string const& url, char* error)
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 15L); // the name lookup is part of it: on some home networks the first lookup after the start takes more than 5 s
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "Transmission-PS5-Updater/1");
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, error);
@@ -1193,9 +1193,27 @@ static void check_thread()
     std::string body;
     long status = 0;
     std::string error;
-    if (!http_get(api_url(), body, status, error) || status != 200)
+    bool got = false;
+    for (int attempt = 0; attempt < 2 && !got; ++attempt)
     {
-        shim_log("update: latest release: %s (HTTP %ld)", error.c_str(), status);
+        if (attempt > 0)
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
+        got = http_get(api_url(), body, status, error) && status == 200;
+        if (!got)
+        {
+            // no answer at all (status 0: name lookup, connection, TLS) is tried once more; an answer that is not 200 is not
+            bool const again = attempt == 0 && status == 0;
+            shim_log("update: latest release: %s (HTTP %ld)%s", error.c_str(), status, again ? ", trying once more" : "");
+            if (!again)
+            {
+                break;
+            }
+        }
+    }
+    if (!got)
+    {
         set_none("failed", CheckRetry);
         return;
     }

@@ -41,12 +41,18 @@ static void web_icons_apply()
     }
 }
 
-constexpr char const* GuardMessagesFile = "/data/Transmission/guard_messages.txt";
+constexpr char const* GuardMessagesFile = "/data/Transmission/transmission/guard_messages.txt";
+// Up to 0.3 the file lay here, outside the folder of the daemon files. The manager removes it. REMINDER: drop this clean-up (and the stale-file lines of
+// tests/suites/language/test_web_client_translation.py) in 0.6 or later, see CLAUDE.md, section 11.
+constexpr char const* OldGuardMessagesFile = "/data/Transmission/guard_messages.txt";
 
 // Web interface translation dictionary (ps5-lang.js) and daemon rejection translations (guard_messages.txt) for the selected language.
 static void web_lang_apply()
 {
-    write_text_file(GuardMessagesFile, ps5tm_guard_messages_text());
+    if (write_text_file(GuardMessagesFile, ps5tm_guard_messages_text()))
+    {
+        unlink(OldGuardMessagesFile); // a daemon of 0.3 that is still running speaks English until it restarts
+    }
     std::string const dictionary = ps5tm_web_lang_js();
     write_text_file(WebLangFile, dictionary);
     struct stat web_st;

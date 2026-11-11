@@ -6,6 +6,8 @@ h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:#8fb7ff;ma
 .card{background:#1b212b;border:1px solid #2a3340;border-radius:10px;padding:12px 14px;margin-bottom:10px}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #2a3340}
 .row:first-child{border-top:0}
+/* a row whose control is taller than its text (a select without a description, the "Check now" button) would sit too close to the line above: other rows get that space from a two-line label */
+.row.tall{padding:10.5px 0}
 /* Section tint: “Settings” is slightly green, “Advanced settings” slightly orange (the same dark grey with a bit of colour added) */
 #accSettings{background:#1b2824;border-color:#2a3b36}#accSettings .acc-head.open{border-bottom-color:#2a3b36}#accSettings .row,#accSettings h3.sub{border-top-color:#2a3b36}#accSettings .acc-head:hover{background:#21322d}
 #accExpert{background:#27221d;border-color:#3b332b}#accExpert .acc-head.open{border-bottom-color:#3b332b}#accExpert .row,#accExpert h3.sub{border-top-color:#3b332b}#accExpert .acc-head:hover{background:#2f2922}
@@ -39,6 +41,7 @@ button.ok{background:#2e9e5b}
 .modal-card{max-width:560px;background:#1b212b;border:2px solid #c0392b;border-radius:14px;padding:18px 22px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 .modal-card h3{margin:0 0 10px;color:#ff6b6b;font-size:19px}.modal-card p{margin:10px 0}
 .quit-head{display:flex;align-items:center;gap:10px;margin:0 0 10px}.quit-head h3{margin:0}
+#updModal .modal-card{border-color:#2e9e5b}#updModal .modal-card h3{color:#5fd68a}
 #updProgressRow{height:10px;background:#0f1319;border:1px solid #3a4658;border-radius:5px;overflow:hidden;margin:12px 0}
 #updBar{height:100%;width:0;background:#2f6fed;transition:width .2s linear}
 

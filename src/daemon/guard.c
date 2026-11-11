@@ -27,11 +27,11 @@
 #define GUARD_MSG_NO_FOLDER_TORRENT "The folder of this torrent is unknown (its saved state was lost). Set it through 'Set location' (a folder from the Download folders list)."
 #define GUARD_MSG_TEMP_OFF "The temporary folder is disabled in Transmission for PS5."
 
-/* Translation of a rejection: the manager writes guard_messages.txt (lines "English format<TAB>translation with {1}"). The value from the file does NOT go to printf: {1}
+/* Translation of a rejection: the manager writes transmission/guard_messages.txt, next to the other files it hands to the daemon (lines "English format<TAB>translation with {1}"). The value from the file does NOT go to printf: {1}
  * is replaced with the first string argument manually. No file or no line: the English text remains. */
 static int guard_translate(const char *english, const char *arg, char *out, size_t outsize)
 {
-    FILE *f = fopen(BASE_DIR "/guard_messages.txt", "r");
+    FILE *f = fopen(DAEMON_DIR "/guard_messages.txt", "r");
     char line[1400];
     size_t elen = strlen(english);
     int found = 0;

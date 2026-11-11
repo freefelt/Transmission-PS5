@@ -58,10 +58,10 @@ function api(path,body,cb,timeout){var x=new XMLHttpRequest();x.open(body?'POST'
 function buildFields(f,schema,c,pre){f.innerHTML='';
  schema.forEach(function(s){
   if(s.h){var h=document.createElement('div');h.className='help';h.style.cssText='margin:10px 0 2px;font-weight:600;color:#8fb7ff';h.textContent=s.h;f.appendChild(h);return}
-  if(s.u){var ur=document.createElement('div');ur.className='row';ur.id=pre+'row_update_now';var ul=document.createElement('label');ul.textContent='Last check';
+  if(s.u){var ur=document.createElement('div');ur.className='row tall';ur.id=pre+'row_update_now';var ul=document.createElement('label');ul.textContent='Last check';
    var us=document.createElement('span');us.className='help';us.id='updLast';ul.appendChild(us);var ub=document.createElement('button');ub.type='button';ub.id='updNow';ub.className='alt';ub.textContent='Check now';
    ur.appendChild(ul);ur.appendChild(ub);f.appendChild(ur);return}
-  var r=document.createElement('div');r.className='row';r.id=pre+'row_'+s.k;var l=document.createElement('label');l.setAttribute('for',pre+s.k);l.textContent=s.l;
+  var r=document.createElement('div');r.className='row'+(s.t==='sel'&&!s.d?' tall':'');r.id=pre+'row_'+s.k;var l=document.createElement('label');l.setAttribute('for',pre+s.k);l.textContent=s.l;
   if(s.m)helpBtn(l,s.l,s.m);
   if(s.d){var d=document.createElement('span');d.className='help';d.textContent=s.d;l.appendChild(d)}
   var i=s.t==='sel'?document.createElement('select'):document.createElement('input');i.id=pre+s.k;
@@ -175,93 +175,94 @@ function ssRender(st){var ss=st&&st.syssvc,e=$('ssState');if(!ss){e.textContent=
 if(ss.hung){e.textContent='hung: '+ss.error;return}if(ss.disabled){e.textContent='off: '+ss.error;return}
 if(!ss.ready){e.textContent='loading or not available'+(ss.error?': '+ss.error:'');return}
 e.textContent='running; game: '+(ss.game_state==='none'?'None':ss.game_state==='on_screen'?'on screen':ss.game_state==='minimised'?'running but minimised':'Launched')+(ss.title?' ('+ss.title+')':'')+'; console language: '+(ss.system_lang<0?'Unknown':(ss.system_lang===8?'Russian':'code '+ss.system_lang))+'; keep awake: '+(ss.keepawake?'On':'Off')}
-/* A newer release: the browser asks GitHub once in a few hours, only to show a link next to the version (the manager has its own check, below, that can install).
-   It runs only while "Check for updates automatically" is on (render() starts it). Automated browsers (jsdom, headless Chrome) do not ask unless a test sets window.PS5_UPDATE_URL. */
-var UPD_URL=window.PS5_UPDATE_URL||'https://api.github.com/repos/freefelt/transmission_ps5/releases/latest',UPD_PAGE='https://github.com/freefelt/Transmission-PS5/releases/latest',updTag='';
-function verParts(v){return String(v).replace(/^v/i,'').split('.').map(function(x){return parseInt(x,10)||0})}
-function verNewer(a,b){var x=verParts(a),y=verParts(b);for(var i=0;i<Math.max(x.length,y.length);i++){var p=x[i]||0,q=y[i]||0;if(p!==q)return p>q}return false}
-function updStore(tag){updTag=tag;try{localStorage.setItem('ps5tm_upd',JSON.stringify({t:Date.now(),tag:tag}))}catch(e){}}
-function updCheck(){if(!window.PS5_UPDATE_URL&&/jsdom|HeadlessChrome/i.test(navigator.userAgent||''))return;
- try{var c=JSON.parse(localStorage.getItem('ps5tm_upd')||'null');if(c&&c.t<=Date.now()&&Date.now()-c.t<(c.tag?21600000:3600000)){updTag=c.tag||'';return}}catch(e){}
- try{var x=new XMLHttpRequest();x.open('GET',UPD_URL);x.timeout=10000;
-  x.onload=function(){var tag='';if(x.status===200){try{tag=String(JSON.parse(x.responseText).tag_name||'').replace(/^v/i,'')}catch(e){}}updStore(/^\d+(\.\d+)*$/.test(tag)?tag:'')};
-  x.onerror=x.ontimeout=function(){updStore('')};x.send()}catch(e){}}
-function topRender(s){var upd=updTag&&verNewer(updTag,s.version)?updTag:'',key=s.version+'|'+s.tr_version+'|'+s.ip+'|'+upd,t=$('top');if(t._key===key)return;t._key=key;t.textContent='';
+function topRender(s){var mt=updMgrTag(),rdy=!!mt&&updLastJ.state==='ready',key=s.version+'|'+s.tr_version+'|'+s.ip+'|'+mt+'|'+(rdy?'r':'')+(updRestarting?'x':''),t=$('top');if(t._key===key)return;t._key=key;t.textContent='';
  t.appendChild(document.createTextNode('Version '+s.version));
- if(upd){t.appendChild(document.createTextNode(' ('));var a=document.createElement('a');a.href=UPD_PAGE;a.target='_blank';a.rel='noopener';a.textContent='update available'+' '+upd;t.appendChild(a);t.appendChild(document.createTextNode(')'))}
+ /* the link comes from the manager (updater.cc) and opens the update dialog: the offer, the progress, or "ready" with the Restart button */
+ if(mt){t.appendChild(document.createTextNode(' ('));var a=document.createElement('a');a.href='#';a.onclick=function(ev){ev.preventDefault();updOpenDialog()};
+  a.textContent=rdy?(updRestarting?'Restarting Transmission…':'restart to update to'+' '+mt):'update available'+' '+mt;t.appendChild(a);t.appendChild(document.createTextNode(')'))}
  t.appendChild(document.createTextNode(' · Transmission '+s.tr_version+' · console address '+s.ip))}
-/* Release update: the manager checks GitHub (at most once a day), finds the file PLDMGR launched and downloads the new ELF.
-   The page only shows the state and asks the manager to start, retry or restart. An old error is not shown on a fresh page:
-   the failure dialog opens only after the user pressed a button of this dialog (updUser). */
-var updTimer=null,updOpen=false,updUser=false,updLastJ=null;
+/* Release update: the manager checks GitHub (at most once a day), finds the file PLDMGR launched and downloads the new ELF. The page only shows the state.
+   The dialog never opens by itself: it opens from the link "update available N" in the header or from the same words in the "Last check" row of the
+   Settings card; once the update is ready the header link and the row button open it too, and Restart is pressed in the dialog. An old error is not shown on a fresh page (updUser: the user has pressed a button of this page). */
+var updTimer=null,updOpen=false,updUser=false,updLastJ=null,updRestarting=false;
 var UPD_RESULTS={latest:'Up to date',available:'Update available',notfound:'The running file was not found',failed:'Check failed'};
-/* The "Last check" row of the Settings card: when the manager last asked GitHub and how it ended; the button asks at once (the daily limit applies to the automatic check only) */
+function updReady(j){return !!j&&(j.state==='available'||j.state==='downloading'||j.state==='ready')} /* the manager has an update to offer */
+function updMgrTag(){return updReady(updLastJ)?updLastJ.latest:''}
+function updDate(sec){var d=new Date(sec*1000),loc=state&&state.config&&state.config.language==='ru'?'ru-RU':undefined; /* the language of the page, not of the browser */
+ try{return d.toLocaleString(loc,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return d.toLocaleString()}}
+function updSay(t){$('updStatus').textContent=t;var e=$('updLast');if(e)e.textContent=t}
+/* The "Last check" row of the Settings card: when the manager last asked GitHub and how it ended; with an update it holds the link that opens the dialog, and when the
+   update is ready the button becomes "Restart". The button "Check now" asks at once (the daily limit applies to the automatic check only). */
 function updInfo(j){var e=$('updLast'),b=$('updNow');if(!e||!b)return;
- b.disabled=j.state==='checking'||j.state==='downloading';var t;
- if(j.state==='checking')t='Checking…';
- else if(j.state==='downloading')t='Downloading the update…';
- else if(j.state==='ready')t='The update is ready. Restart to apply it.';
- else if(j.last_check>0)t=new Date(j.last_check*1000).toLocaleString()+(UPD_RESULTS[j.last_result]?' · '+UPD_RESULTS[j.last_result]:'');
- else t='Not checked yet';
- e.textContent=t}
+ var busy=j.state==='checking'||j.state==='downloading',ready=j.state==='ready';
+ b.textContent=ready?'Restart':'Check now';b.className=ready?'':'alt';b.disabled=busy||(ready&&!!j.restarting);
+ e.textContent='';
+ if(j.state==='checking'){e.textContent='Checking…';return}
+ if(j.state==='downloading'){e.textContent='Downloading the update…';return}
+ if(ready){e.textContent=j.restart_error||'The update is ready. Restart to apply it.';return}
+ if(j.state==='error'&&updUser){e.textContent=j.error||'';return}
+ if(j.state==='available'){
+  if(j.last_check>0)e.appendChild(document.createTextNode(updDate(j.last_check)+' · '));
+  var a=document.createElement('a');a.href='#';a.id='updLink';a.textContent='Update available'+' '+j.latest;a.onclick=function(ev){ev.preventDefault();updOpenDialog()};e.appendChild(a);return}
+ if(j.last_check>0)e.textContent=updDate(j.last_check)+(UPD_RESULTS[j.last_result]?' · '+UPD_RESULTS[j.last_result]:'');
+ else e.textContent='Not checked yet'}
 function updNowClick(){
+ if(updLastJ&&updLastJ.state==='ready'){updOpenDialog();return} /* the dialog asks for the restart */
  api('/api/update',{action:'check'},function(c,j){
   if(c!==200||!j){$('updLast').textContent='Could not check for updates';return}
   if(!j.ok){$('updLast').textContent=j.message||'Could not check for updates';updPoll();return}
   $('updNow').disabled=true;$('updLast').textContent='Checking…';updTimer=setTimeout(updPoll,500)})}
 function updButtons(update,restart,retry){$('updGo').style.display=update?'inline-block':'none';$('updRestart').style.display=restart?'inline-block':'none';$('updRetry').style.display=retry?'inline-block':'none'}
-function updShow(j){
- if(!updOpen){updOpen=true;popOpen($('updModal'),'flex')}
- $('updVer').textContent=j.latest||'';
- $('updNotes').style.display=j.changelog?'inline':'none';if(j.changelog)$('updNotes').href=j.changelog;
- $('updProgressRow').style.display='none';$('updStatus').textContent='';$('updTitle').textContent='Update available';
- updButtons(true,false,false);
+/* The content of the dialog for the state of the update: the offer (version and what is new), the progress, "ready", or the failure */
+function updView(j){
+ $('updOffer').style.display=j.state==='available'?'block':'none';$('updProgressRow').style.display=j.state==='downloading'?'block':'none';
+ if(j.state==='available'){$('updVer').textContent=j.latest||'';$('updNotes').style.display=j.changelog?'inline':'none';if(j.changelog)$('updNotes').href=j.changelog;
+  $('updTitle').textContent='Update available';$('updStatus').textContent='';updButtons(true,false,false)}
+ else if(j.state==='downloading'){$('updTitle').textContent='Updating…';$('updBar').style.width=(j.progress||0)+'%';
+  $('updStatus').textContent=j.progress>=100?'Verifying the update…':'Downloading the update…';updButtons(false,false,false)}
+ else if(j.state==='ready'){$('updTitle').textContent='Update ready';$('updStatus').textContent=j.restart_error||'The update is ready. Restart to apply it.';
+  $('updRestart').disabled=!!j.restarting;updButtons(false,true,false)}
+ else if(j.state==='error'){$('updTitle').textContent='Update failed';$('updStatus').textContent=j.error||'';updButtons(false,false,true)}
 }
+function updOpenDialog(){
+ if(!updReady(updLastJ)&&!(updLastJ&&updLastJ.state==='error'))return;
+ if(!updOpen){updOpen=true;popOpen($('updModal'),'flex')}
+ updView(updLastJ);updPoll()}
 function updPoll(){
+ clearTimeout(updTimer);
  api('/api/update',null,function(c,j){
   if(c!==200||!j){updTimer=setTimeout(updPoll,5000);return}
-  updLastJ=j;updInfo(j);
+  updLastJ=j;updInfo(j);if(state)topRender(state);
   if(j.state==='checking'){updTimer=setTimeout(updPoll,1500);return}
-  if(j.state==='available'){updShow(j);return}
-  if(j.state==='downloading'){
-   if(!updOpen)updShow(j);$('updTitle').textContent='Update available';
-   $('updProgressRow').style.display='block';$('updBar').style.width=(j.progress||0)+'%';
-   $('updStatus').textContent=j.progress>=100?'Verifying the update…':'Downloading the update…';
-   updButtons(false,false,false);updTimer=setTimeout(updPoll,500);return
-  }
-  if(j.state==='ready'){
-   if(!updOpen)updShow(j);$('updTitle').textContent='Update ready';$('updProgressRow').style.display='none';
-   $('updStatus').textContent=j.restart_error||'The update is ready. Restart to apply it.';
-   $('updRestart').disabled=!!j.restarting;updButtons(false,true,false);return
-  }
-  if(j.state==='error'){
-   if(!updUser)return;
-   if(!updOpen)updShow(j);$('updTitle').textContent='Update failed';$('updProgressRow').style.display='none';
-   $('updStatus').textContent=j.error||'';updButtons(false,false,true);return
-  }
-  if(updOpen){popClose($('updModal'));updOpen=false} /* idle: a repeated check found nothing to offer */
+  if(updOpen){if(j.state==='idle'){popClose($('updModal'));updOpen=false}else updView(j)} /* idle: a repeated check found nothing to offer */
+  if(j.state==='downloading')updTimer=setTimeout(updPoll,500)
  });
 }
 $('updLater').onclick=function(){popClose($('updModal'));updOpen=false};
 $('updGo').onclick=function(){updUser=true;
  api('/api/update',{action:'download'},function(c,j){if(c!==200||!j||!j.ok){$('updStatus').textContent=(j&&j.message)||'Could not start the update';return}
-  $('updGo').style.display='none';$('updProgressRow').style.display='block';$('updBar').style.width='0%';$('updStatus').textContent='Downloading the update…';updTimer=setTimeout(updPoll,300)})};
+  updView({state:'downloading',progress:0});updTimer=setTimeout(updPoll,300)})};
 $('updRetry').onclick=function(){updUser=true;
  api('/api/update',{action:'check'},function(c,j){if(c!==200||!j||!j.ok){$('updStatus').textContent=(j&&j.message)||'Could not start the update';return}
   $('updRetry').style.display='none';$('updStatus').textContent='';updTimer=setTimeout(updPoll,500)})};
-$('updRestart').onclick=function(){var btn=this;btn.disabled=true;updUser=true; /* one click: the button stays off until the restart is refused or has failed */
- api('/api/update',{action:'restart'},function(c,j){if(c!==200||!j||!j.ok){btn.disabled=false;$('updStatus').textContent=(j&&j.message)||'Could not restart';return}
-  var before=state&&state.built,end=Date.now()+90000;$('updStatus').textContent='Restarting Transmission…';
+/* Restart (the button of the dialog): one click, the buttons stay off until the restart is refused or has failed */
+function updRestartNow(){if(updRestarting)return;updRestarting=true;if(state)topRender(state);
+ var bs=[$('updNow'),$('updRestart')];bs.forEach(function(b){if(b)b.disabled=true});updUser=true;
+ function back(t){updRestarting=false;bs.forEach(function(b){if(b)b.disabled=false});
+  if(!updOpen&&updLastJ){updOpen=true;popOpen($('updModal'),'flex');updView(updLastJ)} /* wherever the click came from, the reason is shown */
+  updSay(t);if(state)topRender(state)}
+ api('/api/update',{action:'restart'},function(c,j){if(c!==200||!j||!j.ok){back((j&&j.message)||'Could not restart');return}
+  var before=state&&state.built,end=Date.now()+90000;updSay('Restarting Transmission…');
   (function wait(){
-   if(Date.now()>end){btn.disabled=false;$('updStatus').textContent='The update timed out. Reload the page and try again.';return}
+   if(Date.now()>end){back('The update timed out. Reload the page and try again.');return}
    api('/api/update',null,function(c1,j1){
-    if(c1===200&&j1&&j1.restart_error){btn.disabled=false;$('updStatus').textContent=j1.restart_error;return} /* the real reason, not a timeout */
+    if(c1===200&&j1&&j1.restart_error){back(j1.restart_error);return} /* the real reason, not a timeout */
     api('/api/state',null,function(c2,s2){if(c2===200&&s2&&s2.built&&s2.built!==before){location.reload();return}setTimeout(wait,1000)},3000)
    },3000)
-  })()})};
+  })()})}
+$('updRestart').onclick=updRestartNow;
 setTimeout(updPoll,2500);
-var updChecked=false; // the browser-side check starts from render(), when the settings are known
-function render(s){state=s;if(!updChecked){updChecked=true;if(s.config.update_check)updCheck()}ssRender(s.stats);pwRender(s.stats);$('fdCard').classList.toggle('fd-mono',s.config.web_icons==='mono');$('fdCard').classList.toggle('fd-open-on',s.config.web_openfolder==='bfpilot'||s.config.web_openfolder==='webfm');if(!formBuilt)buildForm(s.config);dmRender(s.daemon);notifState(s.notif_latest); var tr='http://'+location.hostname+':'+s.rpc_port+'/';
+function render(s){state=s;ssRender(s.stats);pwRender(s.stats);$('fdCard').classList.toggle('fd-mono',s.config.web_icons==='mono');$('fdCard').classList.toggle('fd-open-on',s.config.web_openfolder==='bfpilot'||s.config.web_openfolder==='webfm');if(!formBuilt)buildForm(s.config);dmRender(s.daemon);notifState(s.notif_latest); var tr='http://'+location.hostname+':'+s.rpc_port+'/';
  topRender(s);$('bdState').textContent='SDK '+s.sdk+' · built '+s.built;
  $('trLink').href=tr;if(/PlayStation/i.test(navigator.userAgent||''))$('trLink').removeAttribute('target');else $('trLink').target='ps5tm-transmission-web'; /* a named tab: the next click goes to the same tab instead of opening a new one (no noopener: it would always open a new one) */
  var st=s.stats,t='',run=s.daemon.state==='running';
